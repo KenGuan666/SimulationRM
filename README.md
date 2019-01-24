@@ -24,4 +24,4 @@ Clone the repo anywhere, then copy the entire `Ken/DJI` folder into `<python-pac
 To run the simulation, execute the python script `.../DJI/robot_play.py`. For now you should see a red and a blue robot. The blue robot shall attack the red robot until the red robot is defeated.
 
 
-Updated 1/19/2019
+Updated 1/24/2019
