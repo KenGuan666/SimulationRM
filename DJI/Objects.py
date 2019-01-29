@@ -28,8 +28,6 @@ class Character:
 	def reset(self):
 		pass
 
-	def isRobot(self):
-		return False
 
 """
 All rectangular objects are described by class Rectangle
@@ -47,6 +45,10 @@ class Rectangle(Character):
 		self.vertices = self.getVertices()
 		self.sides = self.getSides()
 		self.center = self.getCenter()
+
+	def by_center(center, width, height, angle):
+		helper_rec = Rectangle(center, width / 2, height / 2, angle + 180)
+		return Rectangle(helper_rec.vertices[2], width, height, angle)
 
 	def getVertices(self):
 		width_dx = math.cos(self.angle_radian) * self.width
@@ -172,6 +174,8 @@ Impermissible and inpenetrable obstacles are described by class Obstacle
 """
 class Obstacle(uprightRectangle):
 
+	type = 'OBSTACLE'
+
 	def permissible(self, team):
 		return False
 
@@ -183,6 +187,8 @@ class Obstacle(uprightRectangle):
 Permissble and penetrable areas in the field are described by class Zone
 """
 class Zone(uprightRectangle):
+
+	type = 'ZONE'
 
 	sidelength = 100
 
@@ -314,8 +320,8 @@ class Bullet:
 		blocker = self.env.isBlocked(move_seg)
 		if blocker:
 			self.destruct()
-			if blocker.isRobot():
-				blocker.reduceHealth(self.damage)
+			if blocker.type == 'ARMOR':
+				blocker.master.reduceHealth(self.damage)
 		elif self.env.isLegal(move_point):
 			self.point = move_point
 			self.range -= self.speed
@@ -334,6 +340,19 @@ class Bullet:
 	def render(self):
 		return [rendering.Circle(self.point, 2)]
 
+
+class Armor(Rectangle):
+
+	type = 'ARMOR'
+
+	def __init__(self, rec, robot):
+		super().__init__(rec.bottom_left, rec.width, rec.height, rec.angle)
+		self.master = robot
+
+	def blocks(self, seg):
+		return super().blocks(seg)
+
+
 """
 The robot object -
 Currently modeled as a Rectangle object by assumption that gun has negligible chance of blocking a bullet
@@ -342,9 +361,12 @@ To modify strategy, extend the class and override the `getStrategy` method
 """
 class Robot(Rectangle):
 
+	type = 'ROBOT'
+
 	width = 50.0
 	height = 30.0
-	health = 2000
+	armor_size = 13.1
+	health = 20000
 	gun_width = height / 4
 	gun_length = width
 	range = 300 # More on this later
@@ -352,7 +374,8 @@ class Robot(Rectangle):
 	max_forward_speed = 1.5
 	max_sideway_speed = 1
 	max_rotation_speed = 1.5
-	max_gun_rotation_speed = 6
+	max_gun_angle = 45
+	max_gun_rotation_speed = 3
 	max_cooldown = 11
 
 	def __init__(self, env, team, bottom_left, angle=0):
@@ -364,21 +387,18 @@ class Robot(Rectangle):
 		team.addRobot(self)
 		self.defenseBuffTimer, self.freezeTimer = 0, 0
 		super().__init__(bottom_left, Robot.width, Robot.height, angle)
-		self.gun = self.getGun()
 		self.heat = 0
 		self.cooldown = 0
 		self.bullet = 0
 
 	def render(self):
 		if self.alive():
-			return super().render() + Rectangle.render(self.gun, self.color)
+			return super().render() + self.getGun().render(self.color) \
+			    + [armor.render()[0] for armor in self.getArmor()]
 		return super().render()
 
 	def alive(self):
 		return self.health > 0
-
-	def isRobot(self):
-		return True
 
 	def load(self, num):
 		self.bullet += num
@@ -421,23 +441,21 @@ class Robot(Rectangle):
 				return
 			strategy = self.getStrategy()
 			if strategy:
-				action = strategy.decide(self)
+				action = strategy.decide_with_default(self)
 				if action:
-					if not type(action) == list:
-						return action.resolve(self)
 					for action_part in action:
-						action.resolve(self)
+						action_part.resolve(self)
 
 	def setPosition(self, rec):
 		Rectangle.__init__(self, rec.bottom_left, rec.width, rec.height, rec.angle)
-		self.gun = self.getGun()
 
 	def getGun(self):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
 
-	def fireLine(self):
-		return self.gun.center.move_seg_by_angle(self.angle, 1000)
+	def getArmor(self):
+		return [Armor(Rectangle.by_center(self.vertices[i].midpoint(self.vertices[(i + 1) % 4]), \
+		    self.armor_size, 3, self.angle + i % 2 * 90), self) for i in range(4)]
 
 	def reduceHealth(self, amount):
 		if self.alive():
@@ -451,20 +469,20 @@ class DummyRobot(Robot):
 	health = 10000
 
 	def getStrategy(self):
-		return DoNothing
+		return DoNothing()
 
 
 class CrazyRobot(Robot):
 
 	def getStrategy(self):
-		return SpinAndFire
+		return SpinAndFire()
 
 
 class AttackRobot(Robot):
 
 	def getStrategy(self):
 		target = self.team.enemy.robots[0]
-		return Attack
+		return Attack()
 
 
 class ManualControlRobot(Robot):

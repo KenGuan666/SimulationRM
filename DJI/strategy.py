@@ -14,8 +14,13 @@ They use the CLASS OBJECT for operations
 """
 class Strategy:
 
-    def decide(robot):
-        pass
+    def decide_with_default(self, robot):
+        action = self.decide(robot)
+        if action:
+            if type(action) == list:
+                return action + [AutoAim(robot.getEnemy())]
+            return [action, AutoAim(robot.getEnemy())]
+        return [AutoAim(robot.getEnemy())]
 
     def name():
         pass
@@ -25,7 +30,7 @@ class Patrol(Strategy):
 
     key_points = [Point(0, 0)]
 
-    def decide(robot):
+    def decide(self, robot):
         pass
 
     def name():
@@ -34,7 +39,7 @@ class Patrol(Strategy):
 
 class DoNothing(Strategy):
 
-    def decide(robot):
+    def decide(self, robot):
         return None
 
     def name():
@@ -43,7 +48,7 @@ class DoNothing(Strategy):
 
 class SpinAndFire(Strategy):
 
-    def decide(robot):
+    def decide(self, robot):
         actions = []
         if robot.angle % 90 == 0:
             actions.append(Fire())
@@ -64,7 +69,7 @@ class AimAndFire(Strategy):
 
     def decide(self, robot):
         if floatEquals(robot.angleTo(self.target_robot.center), robot.angle):
-            fire_line = LineSegment(robot.gun.center, self.target_robot.center)
+            fire_line = LineSegment(robot.getGun().center, self.target_robot.center)
             if robot.env.isBlocked(fire_line, self.target_robot):
                 return
             if fire_line.length() > robot.range:
@@ -76,7 +81,7 @@ class AimAndFire(Strategy):
 
 class Attack(Strategy):
 
-    def decide(robot):
+    def decide(self, robot):
         enemy = robot.getEnemy()
         loader = robot.team.loadingZone
         if robot.bullet > 0:

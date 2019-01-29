@@ -134,7 +134,10 @@ class RobomasterEnv(gym.Env):
 		return self.characters['robots'] + self.characters['bullets']
 
 	def unpenetrables(self):
-		return self.characters['robots'] + self.characters['obstacles']
+		plates = []
+		for r in self.characters['robots']:
+			plates += r.getArmor()
+		return self.characters['robots'] + self.characters['obstacles'] + plates
 
 	def impermissibles(self, robot):
 		return list(filter(lambda r: not r == robot, self.characters['robots'])) \

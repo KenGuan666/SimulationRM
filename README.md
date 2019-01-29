@@ -4,10 +4,8 @@
 
 1. Install OpenAI Gym with `pip install gym`, OpenCV with `pip install opencv-python` and keyboard control with `pip install keyboard`.
 
-2. *This will be fixed once we improve the repo structure*
 
-
-Clone the repo anywhere, then copy the entire `Ken/DJI` folder into `<python-packages-root-directory>/gym/env/`.
+2. Clone the repo anywhere, then copy the entire `/DJI` folder into `<python-packages-root-directory>/gym/env/`.
 
 3. In `<python-packages-root-directory>/gym/env/__init__.py`, add the following code parallel to similar clauses:
 
@@ -21,7 +19,6 @@ Clone the repo anywhere, then copy the entire `Ken/DJI` folder into `<python-pac
 
 ## Running
 
-To run the simulation, execute the python script `.../DJI/robot_play.py`. For now you should see a red and a blue robot. The blue robot shall attack the red robot until the red robot is defeated.
+To run the simulation, execute the python script `.../DJI/robot_play.py`.
 
-
-Updated 1/24/2019
+Updated 1/29/2019

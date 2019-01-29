@@ -75,6 +75,7 @@ class LineSegment:
 		self.point_from = point_from
 		self.point_to = point_to
 		self.move_vec = point_to.diff(point_from)
+		self.midpoint = point_from.midpoint(point_to)
 		if point_from.x == point_to.x:
 			self.slope = float('inf')
 		else:
