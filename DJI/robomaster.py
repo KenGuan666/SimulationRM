@@ -123,7 +123,7 @@ class RobomasterEnv(gym.Env):
 		boundary.set_color(COLOR_BLACK[0], COLOR_BLACK[1], COLOR_BLACK[2])
 		self.viewer.add_geom(boundary)
 
-		if display_visibility_map:
+		if self.display_visibility_map:
 			delta = 20
 			for block in self.characters['obstacles'] + [self.my_team.loadingZone]:
 				for i in range(4):
