@@ -363,10 +363,10 @@ class Robot(Rectangle):
 
 	type = 'ROBOT'
 
-	width = 50.0
-	height = 30.0
+	width = 55.0
+	height = 42.0
 	armor_size = 13.1
-	health = 20000
+	health = 2000
 	gun_width = height / 4
 	gun_length = width
 	range = 300 # More on this later
@@ -374,7 +374,7 @@ class Robot(Rectangle):
 	max_forward_speed = 1.5
 	max_sideway_speed = 1
 	max_rotation_speed = 1.5
-	max_gun_angle = 45
+	max_gun_angle = 90
 	max_gun_rotation_speed = 3
 	max_cooldown = 11
 

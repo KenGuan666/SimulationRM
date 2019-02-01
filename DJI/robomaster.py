@@ -65,6 +65,7 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 1
 	full_time = 30000
+	display_visibility_map = False
 
 	def __init__(self):
 
@@ -121,6 +122,17 @@ class RobomasterEnv(gym.Env):
 		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
 		boundary.set_color(COLOR_BLACK[0], COLOR_BLACK[1], COLOR_BLACK[2])
 		self.viewer.add_geom(boundary)
+
+		if display_visibility_map:
+			delta = 20
+			for block in self.characters['obstacles'] + [self.my_team.loadingZone]:
+				for i in range(4):
+					delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
+					delta_x *= -delta
+					delta_y *= delta
+					point = block.vertices[i].move(delta_x, delta_y)
+					geom = rendering.Circle(point, 5)
+					self.viewer.add_geom(geom)
 
 		for char in self.characters['obstacles'] + self.characters['zones']:
 			geoms = char.render()
