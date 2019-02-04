@@ -65,7 +65,7 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 1
 	full_time = 30000
-	display_visibility_map = False
+	display_visibility_map = True
 
 	def __init__(self):
 
@@ -260,7 +260,7 @@ class RobomasterEnv(gym.Env):
 		for ob in self.impermissibles(robot):
 			if ob.intersects(rec):
 				return True
-		for v in robot.vertices:
+		for v in rec.vertices:
 			if not self.isLegal(v):
 				return True
 		return False

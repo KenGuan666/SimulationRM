@@ -190,6 +190,17 @@ class Fire(Action):
             robot.cooldown = robot.max_cooldown
 
 
+class SwitchShootingOn(Action):
+
+    def resolve(self, robot):
+        robot.shooting = True
+
+
+class SwitchShootingOff(Action):
+
+    def resolve(self, robot):
+        robot.shooting = False
+
 
 class Move(Action):
 

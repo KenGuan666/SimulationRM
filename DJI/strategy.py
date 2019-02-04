@@ -16,11 +16,14 @@ class Strategy:
 
     def decide_with_default(self, robot):
         action = self.decide(robot)
+        default = [AutoAim(robot.getEnemy())]
+        if robot.shooting == True:
+            default += [Fire()]
         if action:
             if type(action) == list:
-                return action + [AutoAim(robot.getEnemy())]
-            return [action, AutoAim(robot.getEnemy())]
-        return [AutoAim(robot.getEnemy())]
+                return action + default
+            return [action] + default
+        return default
 
     def name():
         pass
@@ -51,7 +54,7 @@ class SpinAndFire(Strategy):
     def decide(self, robot):
         actions = []
         if robot.angle % 90 == 0:
-            actions.append(Fire())
+            actions.append(SwitchShootingOn())
         if robot.angle < 180:
             return actions + [Rotate(180)]
         if robot.angle >= 180 and robot.angle < 270:
@@ -68,15 +71,14 @@ class AimAndFire(Strategy):
         self.target_robot = target_robot
 
     def decide(self, robot):
-        if floatEquals(robot.angleTo(self.target_robot.center), robot.angle):
+        if floatEquals(robot.angleTo(self.target_robot.center), robot.angle + robot.gun_angle):
             fire_line = LineSegment(robot.getGun().center, self.target_robot.center)
             if robot.env.isBlocked(fire_line, self.target_robot):
                 return
             if fire_line.length() > robot.range:
-                return StepForward(robot.angle, min(robot.center.dis(self.target_robot.center), \
-                    robot.max_forward_speed))
-            return Fire()
-        return Aim(self.target_robot.center)
+                return Move(self.target_robot.center)
+            return SwitchShootingOn()
+        return [SwitchShootingOff(), Aim(self.target_robot.center)]
 
 
 class Attack(Strategy):
@@ -98,30 +100,28 @@ class Manual(Strategy):
 
     def __init__(self, controls):
         self.controls = controls
-        self.left = controls[0]
-        self.down = controls[1]
-        self.right = controls[2]
-        self.up = controls[3]
-        self.turnleft = controls[4]
-        self.turnright = controls[5]
-        self.fire = controls[6]
-        self.refill = controls[7]
+        [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
+            self.fire, self.refill] = controls
 
     def decide(self, robot):
+        actions = []
         if keyboard.is_pressed(self.turnleft):
-            return RotateLeft(robot.max_rotation_speed)
+            actions.append(RotateLeft(robot.max_rotation_speed))
         if keyboard.is_pressed(self.turnright):
-            return RotateRight(robot.max_rotation_speed)
+            actions.append(RotateRight(robot.max_rotation_speed))
         if keyboard.is_pressed(self.up):
-            return StepForward(robot.angle, robot.max_forward_speed)
+            actions.append(StepForward(robot.angle, robot.max_forward_speed))
         if keyboard.is_pressed(self.down):
-            return StepBackward(robot.angle, robot.max_forward_speed)
+            actions.append(StepBackward(robot.angle, robot.max_forward_speed))
         if keyboard.is_pressed(self.left):
-            return StepLeft(robot.angle, robot.max_forward_speed)
+            actions.append(StepLeft(robot.angle, robot.max_forward_speed))
         if keyboard.is_pressed(self.right):
-            return StepRight(robot.angle, robot.max_forward_speed)
+            actions.append(StepRight(robot.angle, robot.max_forward_speed))
         if keyboard.is_pressed(self.fire):
-            return Fire()
+            if robot.shooting:
+                actions.append(SwitchShootingOff())
+            else:
+                actions.append(SwitchShootingOn())
         if keyboard.is_pressed(self.refill):
-            return RefillCommand()
-        return None
+            actions.append(RefillCommand())
+        return actions

@@ -388,6 +388,7 @@ class Robot(Rectangle):
 		self.defenseBuffTimer, self.freezeTimer = 0, 0
 		super().__init__(bottom_left, Robot.width, Robot.height, angle)
 		self.heat = 0
+		self.shooting = False
 		self.cooldown = 0
 		self.bullet = 0
 
