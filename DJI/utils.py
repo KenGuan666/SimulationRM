@@ -21,6 +21,13 @@ class Point:
 	def diff(self, fr):
 		return Vector(self.x - fr.x, self.y - fr.y)
 
+	def angleTo(self, to):
+		if self.x == to.x:
+			if self.y > to.y:
+				return 270
+			return 90
+		return toDegree(to.diff(self).angle_radian())
+
 	def floatEquals(self, other):
 		return floatEquals(self.x, other.x) and floatEquals(self.y, other.y)
 

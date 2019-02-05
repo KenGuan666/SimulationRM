@@ -46,7 +46,7 @@ class Rectangle(Character):
 		self.sides = self.getSides()
 		self.center = self.getCenter()
 
-	def by_center(center, width, height, angle):
+	def by_center(center, width, height, angle=0):
 		helper_rec = Rectangle(center, width / 2, height / 2, angle + 180)
 		return Rectangle(helper_rec.vertices[2], width, height, angle)
 
@@ -109,6 +109,8 @@ class Rectangle(Character):
 	IT DOESN'T CONSIDER SOME CASES which I don't think are necessary for our app
 	"""
 	def intersects(self, other):
+		if self.contains_any(other.vertices) or other.contains_any(self.vertices):
+			return True
 		for side in other.sides:
 			if self.blocks(side):
 				return True
@@ -118,11 +120,7 @@ class Rectangle(Character):
 		return self.contains(seg.point_to) or self.contains(seg.point_from)
 
 	def angleTo(self, point):
-		if self.center.x == point.x:
-			if self.center.y > point.y:
-				return 270
-			return 90
-		return toDegree(point.diff(self.center).angle_radian())
+		return self.center.angleTo(point)
 
 	"Renders the rectangle depending on type"
 	def render(self, color=None):

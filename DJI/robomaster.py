@@ -65,7 +65,7 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 1
 	full_time = 30000
-	display_visibility_map = False
+	display_visibility_map = True
 
 	def __init__(self):
 
@@ -88,7 +88,7 @@ class RobomasterEnv(gym.Env):
 
 		# Initialize robots
 		myRobot = AttackRobot(self, BLUE, Point(170, 295), 0)
-		enemyRobot = ManualControlRobot("OSPWADBR", self, RED, Point(250, 110), 0)
+		enemyRobot = ManualControlRobot("OSPWADBR", self, RED, Point(10, 10), 0)
 		myRobot.load(5)
 		enemyRobot.load(40)
 		self.characters['robots'] = [myRobot, enemyRobot]
@@ -122,17 +122,6 @@ class RobomasterEnv(gym.Env):
 		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
 		self.viewer.add_geom(boundary)
 
-		if self.display_visibility_map:
-			delta = 20
-			for block in self.characters['obstacles'] + [self.my_team.loadingZone]:
-				for i in range(4):
-					delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
-					delta_x *= -delta
-					delta_y *= delta
-					point = block.vertices[i].move(delta_x, delta_y)
-					geom = rendering.Circle(point, 5)
-					self.viewer.add_geom(geom)
-
 		health_bar_params = (20, 260)
 		BLUE.set_health_bar(uprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
 		    health_bar_params[0], health_bar_params[1]), self.viewer)
@@ -143,6 +132,26 @@ class RobomasterEnv(gym.Env):
 			geoms = char.render()
 			for geom in geoms:
 				self.viewer.add_geom(geom)
+
+		if self.display_visibility_map:
+			delta = 25
+			points = []
+			for block in self.characters['obstacles'] + [self.my_team.loadingZone]:
+				for i in range(4):
+					delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
+					delta_x *= -delta
+					delta_y *= delta
+					point = block.vertices[i].move(delta_x, delta_y)
+					points.append(point)
+					if self.isLegal(point):
+						geom = rendering.Circle(point, 5)
+						self.viewer.add_geom(geom)
+
+			for i in range(len(points)):
+				for j in range(i + 1, len(points)):
+					if self.direct_reachable_forward(points[i], points[j], myRobot):
+						edge = rendering.PolyLine([points[i].toList(), points[j].toList()], False)
+						self.viewer.add_geom(edge)
 
 	def state(self):
 		return []
@@ -164,14 +173,12 @@ class RobomasterEnv(gym.Env):
 		    + self.characters['obstacles'] \
 		    + list(filter(lambda z: not z.permissble(robot.team), self.loadingZones))
 
-	"""
-	BUGGY. DON'T USE
-	"""
-	def direct_reachable_forward(self, robot, to):
-		if robot.center.floatEquals(to):
+	def direct_reachable_forward(self, fr, to, robot):
+		if fr.floatEquals(to):
 			return True
-		helper_rec = Rectangle(robot.bottom_left, robot.center.dis(to) + robot.width, \
-		    robot.height, robot.angleTo(to))
+		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angleTo(to))
+		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width, \
+		    robot.height, fr.angleTo(to))
 		return not self.isObstructed(helper_rec, robot)
 
 	# def direct_reachable_sideways
