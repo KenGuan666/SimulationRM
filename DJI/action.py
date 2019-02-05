@@ -9,14 +9,9 @@ It changes the state of the robot upon resolve
 """
 class Action:
 
-    def frozenOk():
-        return False
-
     # Returns True if the Action is successfully resolved
     # Returns False if it didn't have any effect
     def resolve(self, robot):
-        if robot.freezeTimer > 0 and not self.frozenOk():
-            return False
         result_rec = self.simple_resolve(robot)
         if not result_rec:
             self.post_resolve(robot)
@@ -58,9 +53,6 @@ class StepRight(Step):
 
 class Rotate(Action):
 
-    def frozenOk(self):
-        return True
-
     def __init__(self, angle):
         self.angle = angle
 
@@ -89,9 +81,6 @@ class Rotate(Action):
 
 class RotateLeft(Action):
 
-    def frozenOk(self):
-        return True
-
     def __init__(self, angle):
         self.angle = angle
 
@@ -100,9 +89,6 @@ class RotateLeft(Action):
 
 
 class RotateRight(Action):
-
-    def frozenOk(self):
-        return True
 
     def __init__(self, angle):
         self.angle = angle
@@ -123,9 +109,6 @@ class RotateGunLeft(Action):
     def __init__(self, angle):
         self.angle = angle
 
-    def frozenOk(self):
-        return True
-
     def resolve(self, robot):
         robot.gun_angle = min(robot.gun_angle + self.angle, robot.max_gun_angle)
 
@@ -134,9 +117,6 @@ class RotateGunRight(Action):
 
     def __init__(self, angle):
         self.angle = angle
-
-    def frozenOk(self):
-        return True
 
     def resolve(self, robot):
         robot.gun_angle = max(robot.gun_angle - self.angle, -robot.max_gun_angle)
@@ -168,9 +148,6 @@ class AutoAim(Action):
 
 class Aim(Action):
 
-    def frozenOk(self):
-        return True
-
     def __init__(self, target_point):
         self.target_point = target_point
 
@@ -179,9 +156,6 @@ class Aim(Action):
 
 
 class Fire(Action):
-
-    def frozenOk(self):
-        return True
 
     def resolve(self, robot):
         if robot.bullet > 0 and robot.cooldown == 0:

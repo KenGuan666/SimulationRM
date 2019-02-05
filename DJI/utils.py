@@ -1,4 +1,5 @@
 import math
+import rendering
 
 """
 Implements a point
@@ -116,6 +117,19 @@ class Team:
 	def totalHealth(self):
 		return sum([r.health for r in self.robots])
 
+	def set_health_bar(self, rec, viewer):
+		self.bar = rec
+		if len(self.robots) == 1:
+			self.robots[0].health_bar = rec
+			viewer.add_geom(rendering.PolyLine([p.toList() for p in rec.vertices], True))
+		else:
+			left_middle = rec.vertices[0].midpoint(rec.vertices[3])
+			self.robots[0].health_bar = type(rec)(rec.vertices[0], \
+			    rec.width, rec.height/2)
+			self.robots[1].health_bar = type(rec)(left_middle, \
+			    rec.width, rec.height/2)
+			viewer.add_geom(rendering.PolyLine([p.toList() for p in self.robots[0].health_bar.vertices], True))
+			viewer.add_geom(rendering.PolyLine([p.toList() for p in self.robots[1].health_bar.vertices], True))
 
 def toRadian(deg):
 	return deg / 180 * math.pi

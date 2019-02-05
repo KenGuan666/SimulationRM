@@ -65,7 +65,7 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 1
 	full_time = 30000
-	display_visibility_map = True
+	display_visibility_map = False
 
 	def __init__(self):
 
@@ -120,7 +120,6 @@ class RobomasterEnv(gym.Env):
 		self.viewer = rendering.Viewer(self.width, self.height)
 
 		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
-		boundary.set_color(COLOR_BLACK[0], COLOR_BLACK[1], COLOR_BLACK[2])
 		self.viewer.add_geom(boundary)
 
 		if self.display_visibility_map:
@@ -134,7 +133,13 @@ class RobomasterEnv(gym.Env):
 					geom = rendering.Circle(point, 5)
 					self.viewer.add_geom(geom)
 
-		for char in self.characters['obstacles'] + self.characters['zones']:
+		health_bar_params = (20, 260)
+		BLUE.set_health_bar(uprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
+		    health_bar_params[0], health_bar_params[1]), self.viewer)
+		RED.set_health_bar(uprightRectangle(Point(self.width - health_bar_params[0] - 10, \
+		    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+
+		for char in self.inactables():
 			geoms = char.render()
 			for geom in geoms:
 				self.viewer.add_geom(geom)
@@ -143,7 +148,10 @@ class RobomasterEnv(gym.Env):
 		return []
 
 	def actables(self):
-		return self.characters['robots'] + self.characters['bullets']
+		return self.loadingZones + self.characters['robots'] + self.characters['bullets']
+
+	def inactables(self):
+		return self.defenseBuffZones + self.startingZones + self.characters['obstacles']
 
 	def unpenetrables(self):
 		plates = []
@@ -160,7 +168,7 @@ class RobomasterEnv(gym.Env):
 	BUGGY. DON'T USE
 	"""
 	def direct_reachable_forward(self, robot, to):
-		if floatEquals(robot.center.x, to.x) and floatEquals(robot.center.y, to.y):
+		if robot.center.floatEquals(to):
 			return True
 		helper_rec = Rectangle(robot.bottom_left, robot.center.dis(to) + robot.width, \
 		    robot.height, robot.angleTo(to))
@@ -207,24 +215,6 @@ class RobomasterEnv(gym.Env):
 		for char in self.actables():
 			char.act()
 
-		# assert self.action_space.contains(robot_action),  "%r (%s) invalid"%(robot_action, type(robot_action))
-		#
-		# state = self.state
-		# self.game_time += self.tau
-		#
-		# # Updates positions of robots
-		# self.robot.move(self.enemy, self, robot_action[0], robot_action[1], self.obstacles, self.tau)
-		#
-		# #enemy_action =  self.enemy.random_action() # Temporary enemy action for testing
-		# #enemy_action = [700, 0]
-		# self.enemy.move(self.robot, self, enemy_action[0], enemy_action[1], self.obstacles, self.tau)
-		#
-		# # Update gun angle of robot
-		# self.robot.aim(self.enemy, self.obstacles)
-		#
-		# # Update state
-		# self.state = [self.robot.x, self.robot.y, self.robot.gun_angle, self.enemy.x, self.enemy.y, self.enemy.gun_angle]
-
 		# NOT YET IMPLEMENTED
 		reward = 0.0
 
@@ -237,19 +227,12 @@ class RobomasterEnv(gym.Env):
 	def reset(self):
 		self.viewer.close()
 		self.__init__()
-		# self.robot.x, self.robot.y = self.robot.width / 2, self.robot.length / 2
-		# self.enemy.x, self.enemy.y = self.width - self.enemy.width / 2, self.height - self.enemy.length / 2
-		# self.robot.gun_angle, self.enemy.gun_angle = 0.0, 0.0
-		#
-		# self.game_time = 0
-		#
-		# self.state = [self.robot.x, self.robot.y, self.robot.gun_angle, self.enemy.x, self.enemy.y, self.enemy.gun_angle]
 		return np.array(self.state)
 
 	# Renders the field for human observation
 	def render(self, mode='human'):
 
-		for char in self.characters['robots'] + self.characters['bullets']:
+		for char in self.actables():
 			geoms = char.render()
 			for geom in geoms:
 				self.viewer.add_onetime(geom)
@@ -267,11 +250,9 @@ class RobomasterEnv(gym.Env):
 
 	# Returns the object blocking the line segment
 	# Returns False if it's not blocked
-	def isBlocked(self, seg, target=None):
+	def isBlocked(self, seg, ignore=None):
 		for block in self.unpenetrables():
-			if block.blocks(seg):
-				if block is target:
-					continue
+			if block.blocks(seg) and not block is ignore:
 				return block
 		return False
 

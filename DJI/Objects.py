@@ -234,6 +234,12 @@ class LoadingZone(Zone):
 		return floatEquals(self.loadingPoint.x, robot.center.x, self.tolerance_radius) and \
 		    floatEquals(self.loadingPoint.y, robot.center.y, self.tolerance_radius)
 
+	def act(self):
+		if any([self.aligned(r) for r in self.team.robots]):
+			self.color = self.team.color
+		else:
+			self.color = self.team.dark_color
+
 	def load(self, robot):
 		if self.fills <= 0:
 			print("Team " + robot.team.name + " has no more reloads available.")
@@ -241,7 +247,6 @@ class LoadingZone(Zone):
 		if self.aligned(robot):
 			print("Reload successful on robot " + str(robot.id))
 			robot.load(100)
-			robot.freeze(10)
 		self.fills -= 1
 
 	def reset(self):
@@ -322,6 +327,8 @@ class Bullet:
 			self.destruct()
 			if blocker.type == 'ARMOR':
 				blocker.master.reduceHealth(self.damage)
+			elif blocker.type == 'ROBOT':
+				blocker.reduceHealth(self.damage)
 		elif self.env.isLegal(move_point):
 			self.point = move_point
 			self.range -= self.speed
@@ -385,7 +392,7 @@ class Robot(Rectangle):
 		self.team = team
 		self.color = team.color
 		team.addRobot(self)
-		self.defenseBuffTimer, self.freezeTimer = 0, 0
+		self.defenseBuffTimer = 0
 		super().__init__(bottom_left, Robot.width, Robot.height, angle)
 		self.heat = 0
 		self.shooting = False
@@ -394,8 +401,10 @@ class Robot(Rectangle):
 
 	def render(self):
 		if self.alive():
-			return super().render() + self.getGun().render(self.color) \
-			    + [armor.render()[0] for armor in self.getArmor()]
+			self.health_display = uprightRectangle(self.health_bar.bottom_left.move(0, 1), \
+			    self.health_bar.width - 1, self.health / Robot.health * (self.health_bar.height - 1))
+			return super().render() + self.health_display.render(self.color) + \
+			    self.getGun().render(self.color) + [armor.render()[0] for armor in self.getArmor()]
 		return super().render()
 
 	def alive(self):
@@ -403,9 +412,6 @@ class Robot(Rectangle):
 
 	def load(self, num):
 		self.bullet += num
-
-	def freeze(self, num):
-		self.freezeTimer += num
 
 	def hasDefenseBuff(self):
 		return self.defenseBuffTimer > 0
@@ -432,14 +438,10 @@ class Robot(Rectangle):
 	def act(self):
 		if self.alive():
 			self.defenseBuffTimer = max(0, self.defenseBuffTimer - 1)
-			self.freezeTimer = max(0, self.freezeTimer - 1)
 			self.cooldown = max(0, self.cooldown - 1)
 			for z in self.env.defenseBuffZones:
 				if z.contains_all(self.vertices):
 					z.touch(self)
-			if self.freezeTimer > 0:
-				self.freezeTimer -= 1
-				return
 			strategy = self.getStrategy()
 			if strategy:
 				action = strategy.decide_with_default(self)
@@ -466,8 +468,6 @@ class Robot(Rectangle):
 
 
 class DummyRobot(Robot):
-
-	health = 10000
 
 	def getStrategy(self):
 		return DoNothing()
