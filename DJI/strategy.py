@@ -2,6 +2,7 @@
 from Objects import *
 from utils import *
 from action import *
+from pyglet.window import key
 import keyboard
 
 """
@@ -102,9 +103,22 @@ class Manual(Strategy):
         self.controls = controls
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
             self.fire, self.refill] = controls
+        self.shooting = False
 
     def decide(self, robot):
+        window = robot.env.viewer.window
         actions = []
+
+        @window.event
+        def on_key_press(symbol, modifier):
+            if symbol == key.B:
+                if robot.shooting:
+                    SwitchShootingOff().resolve(robot)
+                else:
+                    SwitchShootingOn().resolve(robot)
+            if symbol == key.R:
+                RefillCommand().resolve(robot)
+
         if keyboard.is_pressed(self.turnleft):
             actions.append(RotateLeft(robot.max_rotation_speed))
         if keyboard.is_pressed(self.turnright):
@@ -117,11 +131,4 @@ class Manual(Strategy):
             actions.append(StepLeft(robot.angle, robot.max_forward_speed))
         if keyboard.is_pressed(self.right):
             actions.append(StepRight(robot.angle, robot.max_forward_speed))
-        if keyboard.is_pressed(self.fire):
-            if robot.shooting:
-                actions.append(SwitchShootingOff())
-            else:
-                actions.append(SwitchShootingOn())
-        if keyboard.is_pressed(self.refill):
-            actions.append(RefillCommand())
         return actions

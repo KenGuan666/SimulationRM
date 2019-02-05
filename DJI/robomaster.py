@@ -88,7 +88,7 @@ class RobomasterEnv(gym.Env):
 
 		# Initialize robots
 		my_robot = AttackRobot(self, BLUE, Point(170, 295), 0)
-		enemy_robot = ManualControlRobot("OSPWADBR", self, RED, Point(10, 10), 0)
+		enemy_robot = ManualControlRobot("OSPWADBR", self, RED, Point(400, 100), 0)
 		my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
@@ -109,7 +109,7 @@ class RobomasterEnv(gym.Env):
 		self.defense_buff_zones = [DefenseBuffZone(p[0], p[1], self) for p in [
 		(Point(120, 275), BLUE), (Point(580, 125), RED)]]
 
-		self.loading_zones = [LoadingZone(p[0], p[1]) for p in [
+		self.loading_zones = [LoadingZone(p[0], p[1], self) for p in [
 		(Point(350, 0), RED), (Point(350, 400), BLUE)]]
 
 		self.characters['zones'] = self.starting_zones + self.defense_buff_zones + \

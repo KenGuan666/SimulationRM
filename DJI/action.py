@@ -102,7 +102,7 @@ class RefillCommand(Action):
 
     def resolve(self, robot):
         print(robot.team.name + " team issued reload command!")
-        robot.team.loading_zone.load(robot)
+        robot.team.loading_zone.load()
 
 
 class RotateGunLeft(Action):

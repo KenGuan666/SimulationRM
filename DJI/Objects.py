@@ -219,13 +219,19 @@ Loading zones that provide 17mm bullets
 """
 class LoadingZone(Zone):
 
-	def __init__(self, bottom_left, team):
+	def __init__(self, bottom_left, team, env):
 		super().__init__(bottom_left, team)
 		team.loading_zone = self
 		self.loading_point = self.center
+		self.env = env
+		self.loading_time = 0
+		self.used = 0
+		self.loaded = 0
+		self.reload_time = 100 / self.load_speed
 
 	fills = 2
 	tolerance_radius = 3
+	load_speed = 20 # per sec
 
 	"""
 	Enemy loading zone is modeled as impermissible
@@ -241,18 +247,29 @@ class LoadingZone(Zone):
 		    float_equals(self.loading_point.y, robot.center.y, self.tolerance_radius)
 
 	def act(self):
+		load_per_step = self.load_speed * self.env.tau
+		if self.loading_time > 0:
+			self.loading_time -= self.env.tau
+			self.used += load_per_step
+			for r in self.team.robots:
+				if self.aligned(r):
+					self.loaded += load_per_step
+					r.load(load_per_step)
+		else:
+			self.loading_time = 0
+			self.used = 0
+			self.loaded = 0
 		if any([self.aligned(r) for r in self.team.robots]):
 			self.color = self.team.color
 		else:
 			self.color = self.team.dark_color
 
-	def load(self, robot):
+	def load(self):
 		if self.fills <= 0:
-			print("Team " + robot.team.name + " has no more reloads available.")
+			print("Team " + self.team.name + " has no more reloads available.")
 			return
-		if self.aligned(robot):
-			print("Reload successful on robot " + str(robot.id))
-			robot.load(100)
+		print("Reload command successful.")
+		self.loading_time += self.reload_time
 		self.fills -= 1
 
 	def reset(self):
@@ -261,6 +278,10 @@ class LoadingZone(Zone):
 	def render(self):
 		circle = rendering.Circle(self.center, 12)
 		circle.set_color(self.color[0], self.color[1], self.color[2])
+		bullets = []
+		if self.loading_time > 0:
+			self.env.viewer.add_onetime_text("used: {0}, loaded: {1}".format(int(self.used), int(self.loaded)), \
+			    10, self.center.x, self.center.y)
 		return super().render() + [circle]
 
 
@@ -392,6 +413,7 @@ class Robot(Rectangle):
 	gun_width = height / 4
 	gun_length = width
 	range = 300 # More on this later
+	bullet_capacity = 150
 
 	max_forward_speed = 1.5
 	max_sideway_speed = 1
@@ -412,6 +434,7 @@ class Robot(Rectangle):
 		self.heat = 0
 		self.shooting = False
 		self.cooldown = 0
+		self.load_timer = 0
 		self.bullet = 0
 
 	def render(self):
@@ -430,7 +453,7 @@ class Robot(Rectangle):
 		return self.health > 0
 
 	def load(self, num):
-		self.bullet += num
+		self.bullet = min(self.bullet + num, self.bullet_capacity)
 
 	def has_defense_buff(self):
 		return self.defense_buff_timer > 0

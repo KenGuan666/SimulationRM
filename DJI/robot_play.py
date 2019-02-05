@@ -22,5 +22,6 @@ for _ in range(total_rounds):
 	# path = wp.new_path(env.robot, path)
 	#path_for_enemy = new_path(env.enemy, path_for_enemy)
 	# time.sleep(.1)
+	time.sleep(0.01)
 	if env.finished:
 		break
