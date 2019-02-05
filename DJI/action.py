@@ -1,6 +1,7 @@
 
 from Objects import *
 from utils import *
+import rendering
 import numpy
 
 """
@@ -185,6 +186,7 @@ class Move(Action):
         self.target_point = target_point
 
     def resolve(self, robot):
+        wait = 10
         if robot.center.float_equals(self.target_point):
             return
         if robot.env.direct_reachable_forward(robot.center, self.target_point, robot):
@@ -194,7 +196,37 @@ class Move(Action):
             return Aim(self.target_point).resolve(robot)
 
         # WAITING ON BETTER PATH ALGORITHM
-        if float_equals(robot.angle_to(self.target_point), robot.angle):
-            return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
-                robot.max_forward_speed)).resolve(robot)
-        return Aim(self.target_point).resolve(robot)
+        if int(robot.env.game_time / robot.env.tau) % wait == 0:
+            construct_graph(self.target_point, robot)
+        # if float_equals(robot.angle_to(self.target_point), robot.angle):
+        #     return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
+        #         robot.max_forward_speed)).resolve(robot)
+        # return Aim(self.target_point).resolve(robot)
+
+
+
+## PATH ALGORITHM GOES HERE FOR NOW
+
+def construct_graph(to, robot):
+    env = robot.env
+    points = env.network_points + [robot.center, to]
+    real_edges = []
+    for edge in env.network_edges:
+        blocked = False
+        for r in env.characters['robots']:
+            if r.blocks(edge):
+                blocked = True
+                break
+        if not blocked:
+            real_edges.append(edge)
+    for p in env.network_points:
+        from_edge = LineSegment(robot.center, p)
+        if not env.is_blocked(from_edge, [robot]):
+            real_edges.append(from_edge)
+        to_edge = LineSegment(p, to)
+        if not env.is_blocked(to_edge):
+            real_edges.append(to_edge)
+
+    for e in real_edges:
+        edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
+        env.viewer.add_onetime(edge)

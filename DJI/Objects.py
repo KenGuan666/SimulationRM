@@ -424,17 +424,17 @@ class Robot(Rectangle):
 	def __init__(self, env, team, bottom_left, angle=0):
 		self.gun_angle = 0
 		self.env = env
-
 		self.team = team
 		self.color = team.color
 		team.add_robot(self)
 		self.defense_buff_timer = 0
 		super().__init__(bottom_left, self.width, self.height, angle)
-		self.heat = 0
+		# self.heat = 0
 		self.shooting = False
 		self.cooldown = 0
-		self.load_timer = 0
 		self.bullet = 0
+		self.preset_action = None
+		self.preset_timer = 0
 
 	def render(self):
 		if self.alive():
@@ -480,6 +480,11 @@ class Robot(Rectangle):
 		if self.alive():
 			self.defense_buff_timer = max(0, self.defense_buff_timer - self.env.tau)
 			self.cooldown = max(0, self.cooldown - self.env.tau)
+			if self.preset_timer > 0:
+				preset_timer -= self.env.tau
+				for action_part in preset_action:
+					action_part.resolve(self)
+				return
 			strategy = self.get_strategy()
 			if strategy:
 				action = strategy.decide_with_default(self)

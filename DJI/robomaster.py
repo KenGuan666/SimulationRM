@@ -136,7 +136,7 @@ class RobomasterEnv(gym.Env):
 
 		# Init movement network
 		delta = 25
-		network_points = []
+		self.network_points = []
 		for block in self.characters['obstacles'] + [self.my_team.loading_zone]:
 			for i in range(4):
 				delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
@@ -144,17 +144,16 @@ class RobomasterEnv(gym.Env):
 				delta_y *= delta
 				point = block.vertices[i].move(delta_x, delta_y)
 				if self.is_legal(point):
-					network_points.append(point)
-					if self.display_visibility_map:
-						geom = rendering.Circle(point, 5)
-						self.viewer.add_geom(geom)
+					self.network_points.append(point)
+					geom = rendering.Circle(point, 5)
+					self.viewer.add_geom(geom)
 
-		network_edges = []
-		for i in range(len(network_points)):
-			for j in range(i + 1, len(network_points)):
-				p_i, p_j = network_points[i], network_points[j]
+		self.network_edges = []
+		for i in range(len(self.network_points)):
+			for j in range(i + 1, len(self.network_points)):
+				p_i, p_j = self.network_points[i], self.network_points[j]
 				if self.direct_reachable_forward(p_i, p_j, my_robot):
-					network_edges.append(LineSegment(p_i, p_j))
+					self.network_edges.append(LineSegment(p_i, p_j))
 					if self.display_visibility_map:
 						edge = rendering.PolyLine([p_i.to_list(), p_j.to_list()], False)
 						self.viewer.add_geom(edge)
