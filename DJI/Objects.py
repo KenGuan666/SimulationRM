@@ -40,17 +40,17 @@ class Rectangle(Character):
 		self.bottom_left = bottom_left
 		self.width = width
 		self.height = height
-		self.setAngle(angle)
+		self.set_angle(angle)
 		self.angle_radian = angle / 180 * math.pi
-		self.vertices = self.getVertices()
-		self.sides = self.getSides()
-		self.center = self.getCenter()
+		self.vertices = self.get_vertices()
+		self.sides = self.get_sides()
+		self.center = self.get_center()
 
 	def by_center(center, width, height, angle=0):
 		helper_rec = Rectangle(center, width / 2, height / 2, angle + 180)
 		return Rectangle(helper_rec.vertices[2], width, height, angle)
 
-	def getVertices(self):
+	def get_vertices(self):
 		width_dx = math.cos(self.angle_radian) * self.width
 		width_dy = math.sin(self.angle_radian) * self.width
 
@@ -63,34 +63,40 @@ class Rectangle(Character):
 
 		return [self.bottom_left, bottom_right, top_right, top_left]
 
-	def getSides(self):
+	def get_sides(self):
 		return [LineSegment(self.vertices[i], self.vertices[(i + 1) % 4]) for i in range(4)]
 
-	def getCenter(self):
+	def get_center(self):
 		return self.bottom_left.midpoint(self.vertices[2])
 
-	def setAngle(self, deg):
+	def set_angle(self, deg):
 		self.angle = deg % 360
 		self.angle_radian = deg / 180 * math.pi
+
+	def project_points(self, points):
+		width_vec = self.vertices[1].diff(self.bottom_left)
+		height_vec = self.vertices[3].diff(self.bottom_left)
+
+		ans = []
+		for p in points:
+			goal_vec = p.diff(self.bottom_left)
+			width_proj = goal_vec.project(width_vec)
+			height_proj = goal_vec.project(height_vec)
+			x = sign(width_proj.dot(width_vec)) * width_proj.length
+			y = sign(height_proj.dot(height_vec)) * height_proj.length
+			ans.append(Point(x, y))
+
+		return ans
 
 	"""
 	Check if a point is contained by self. Uses some messy linalg. Please Suggest
 	better implementation if possible.
 	"""
-	def contains(self, point):
-		error_threshold = 0.01
-
-		width_vec = self.vertices[1].diff(self.bottom_left)
-		height_vec = self.vertices[3].diff(self.bottom_left)
-
-		goal_vec = point.diff(self.bottom_left)
-		width_proj = goal_vec.project(width_vec)
-		height_proj = goal_vec.project(height_vec)
-
-		return width_proj.length - self.width < error_threshold and \
-	       height_proj.length - self.height < error_threshold and \
-	       width_proj.dot(width_vec) >= 0 and \
-		   height_proj.dot(height_vec) >= 0
+	def contains(self, point, error_threshold=0.01):
+		point = self.project_points([point])[0]
+		return point.x - self.width < error_threshold and \
+	       point.y - self.height < error_threshold and \
+	       point.x >= 0 and point.y >= 0
 
 	def contains_any(self, points):
 		for p in points:
@@ -117,14 +123,16 @@ class Rectangle(Character):
 		return False
 
 	def blocks(self, seg):
-		return self.contains(seg.point_to) or self.contains(seg.point_from)
+		points = self.project_points([seg.point_from, seg.point_to])
+		helper_upright = UprightRectangle(Point(0, 0), self.width, self.height)
+		return helper_upright.blocks(LineSegment(points[0], points[1]))
 
-	def angleTo(self, point):
-		return self.center.angleTo(point)
+	def angle_to(self, point):
+		return self.center.angle_to(point)
 
 	"Renders the rectangle depending on type"
 	def render(self, color=None):
-		rec = rendering.FilledPolygon([p.toList() for p in self.vertices])
+		rec = rendering.FilledPolygon([p.to_list() for p in self.vertices])
 		if not color:
 			color = self.color
 		rec.set_color(color[0], color[1], color[2])
@@ -135,9 +143,9 @@ class Rectangle(Character):
 Type of rectangle that never rotates.
 Has implementation of certain methods that are more efficient
 """
-class uprightRectangle(Rectangle):
+class UprightRectangle(Rectangle):
 
-	def getVertices(self):
+	def get_vertices(self):
 		bottom_left = self.bottom_left
 		bottom_right = bottom_left.move(self.width, 0)
 		top_right = bottom_right.move(0, self.height)
@@ -170,7 +178,7 @@ class uprightRectangle(Rectangle):
 """
 Impermissible and inpenetrable obstacles are described by class Obstacle
 """
-class Obstacle(uprightRectangle):
+class Obstacle(UprightRectangle):
 
 	type = 'OBSTACLE'
 
@@ -184,7 +192,7 @@ class Obstacle(uprightRectangle):
 """
 Permissble and penetrable areas in the field are described by class Zone
 """
-class Zone(uprightRectangle):
+class Zone(UprightRectangle):
 
 	type = 'ZONE'
 
@@ -213,8 +221,8 @@ class LoadingZone(Zone):
 
 	def __init__(self, bottom_left, team):
 		super().__init__(bottom_left, team)
-		team.loadingZone = self
-		self.loadingPoint = self.center
+		team.loading_zone = self
+		self.loading_point = self.center
 
 	fills = 2
 	tolerance_radius = 3
@@ -229,8 +237,8 @@ class LoadingZone(Zone):
 	Checks if the robot is aligned with the bullet supply machinary
 	"""
 	def aligned(self, robot):
-		return floatEquals(self.loadingPoint.x, robot.center.x, self.tolerance_radius) and \
-		    floatEquals(self.loadingPoint.y, robot.center.y, self.tolerance_radius)
+		return float_equals(self.loading_point.x, robot.center.x, self.tolerance_radius) and \
+		    float_equals(self.loading_point.y, robot.center.y, self.tolerance_radius)
 
 	def act(self):
 		if any([self.aligned(r) for r in self.team.robots]):
@@ -265,23 +273,33 @@ class DefenseBuffZone(Zone):
 
 	active = True
 
-	def __init__(self, bottom_left, team):
+	def __init__(self, bottom_left, team, env):
 		super().__init__(bottom_left, team)
 		self.d_helper = Rectangle(self.center.move(0, -15), \
 		    15 * 1.414, 15 * 1.414, 45)
-		team.defenseBuffZone = self
-		self.touch_rec = [0, 0, 0, 0]
+		team.defense_buff_zone = self
+		self.env = env
+		self.touch_record = [0, 0, 0, 0]
 
-	def touch(self, robot):
-		self.touch_rec[robot.id] += 1
-		if self.touch_rec[robot.id] == 500:
-			self.activate()
+	def act(self):
+		touched = False
+		for r in self.env.characters['robots']:
+			if self.contains_all(r.vertices):
+				touched = True
+				self.touch_record[r.id] += self.env.tau
+				if self.active and self.touch_record[r.id] >= 5:
+					self.activate()
+			else:
+				self.touch_record[r.id] = 0
+		if touched:
+			self.color = self.team.color
+		else:
+			self.color = self.team.dark_color
 
 	def activate(self):
-		if self.active:
-			print(self.team.name + " team has activated defense buff!")
-			self.team.addDefenseBuff(30)
-			self.active = False
+		print(self.team.name + " team has activated defense buff!")
+		self.team.add_defense_buff(30)
+		self.active = False
 
 	def reset(self):
 		self.active = True
@@ -303,13 +321,14 @@ class Bullet:
 	damage = 50
 	range = 300
 
-	def __init__(self, point, dir, env):
+	def __init__(self, point, dir, env, master):
 		self.delay = 0  # Models the delay from firing decision to bullet actually flying
 		self.speed = 25
 		self.point = point
 		self.dir = dir / 180 * math.pi
 		self.env = env
 		self.active = True
+		self.master = master
 
 	def act(self):
 		if not self.active:
@@ -320,14 +339,12 @@ class Bullet:
 		move_point = self.point.move(math.cos(self.dir) * self.speed, math.sin(self.dir) * self.speed)
 		move_seg = LineSegment(self.point, move_point)
 
-		blocker = self.env.isBlocked(move_seg)
+		blocker = self.env.is_blocked(move_seg, [self.master])
 		if blocker:
 			self.destruct()
 			if blocker.type == 'ARMOR':
-				blocker.master.reduceHealth(self.damage)
-			elif blocker.type == 'ROBOT':
-				blocker.reduceHealth(self.damage)
-		elif self.env.isLegal(move_point):
+				blocker.master.reduce_health(self.damage)
+		elif self.env.is_legal(move_point):
 			self.point = move_point
 			self.range -= self.speed
 			if self.range <= 0:
@@ -381,7 +398,7 @@ class Robot(Rectangle):
 	max_rotation_speed = 1.5
 	max_gun_angle = 90
 	max_gun_rotation_speed = 3
-	max_cooldown = 11
+	max_cooldown = 0.2
 
 	def __init__(self, env, team, bottom_left, angle=0):
 		self.gun_angle = 0
@@ -389,9 +406,9 @@ class Robot(Rectangle):
 
 		self.team = team
 		self.color = team.color
-		team.addRobot(self)
-		self.defenseBuffTimer = 0
-		super().__init__(bottom_left, Robot.width, Robot.height, angle)
+		team.add_robot(self)
+		self.defense_buff_timer = 0
+		super().__init__(bottom_left, self.width, self.height, angle)
 		self.heat = 0
 		self.shooting = False
 		self.cooldown = 0
@@ -399,10 +416,14 @@ class Robot(Rectangle):
 
 	def render(self):
 		if self.alive():
-			self.health_display = uprightRectangle(self.health_bar.bottom_left.move(0, 1), \
+			self.health_display = UprightRectangle(self.health_bar.bottom_left.move(0, 1), \
 			    self.health_bar.width - 1, self.health / Robot.health * (self.health_bar.height - 1))
-			return super().render() + self.health_display.render(self.color) + \
-			    self.getGun().render(self.color) + [armor.render()[0] for armor in self.getArmor()]
+			if self.has_defense_buff():
+				self.health_display.color = COLOR_YELLOW
+			else:
+				self.health_display.color = self.color
+			return super().render() + self.health_display.render() + \
+			    self.get_gun().render(self.color) + [armor.render()[0] for armor in self.get_armor()]
 		return super().render()
 
 	def alive(self):
@@ -411,13 +432,13 @@ class Robot(Rectangle):
 	def load(self, num):
 		self.bullet += num
 
-	def hasDefenseBuff(self):
-		return self.defenseBuffTimer > 0
+	def has_defense_buff(self):
+		return self.defense_buff_timer > 0
 
-	def addDefenseBuff(self, time):
-		self.defenseBuffTimer = time * 100
+	def add_defense_buff(self, time):
+		self.defense_buff_timer = time
 
-	def getEnemy(self):
+	def get_enemy(self):
 		enemy = self.team.enemy
 		if enemy.robots[0].health == 0:
 			return enemy.robots[1]
@@ -426,7 +447,7 @@ class Robot(Rectangle):
 	"""
 	Determine a strategy based on information in self.env
 	"""
-	def getStrategy(self):
+	def get_strategy(self):
 		pass
 
 	"""
@@ -435,51 +456,52 @@ class Robot(Rectangle):
 	"""
 	def act(self):
 		if self.alive():
-			self.defenseBuffTimer = max(0, self.defenseBuffTimer - 1)
-			self.cooldown = max(0, self.cooldown - 1)
-			for z in self.env.defenseBuffZones:
-				if z.contains_all(self.vertices):
-					z.touch(self)
-			strategy = self.getStrategy()
+			self.defense_buff_timer = max(0, self.defense_buff_timer - self.env.tau)
+			self.cooldown = max(0, self.cooldown - self.env.tau)
+			strategy = self.get_strategy()
 			if strategy:
 				action = strategy.decide_with_default(self)
 				if action:
 					for action_part in action:
 						action_part.resolve(self)
 
-	def setPosition(self, rec):
+	def set_position(self, rec):
 		Rectangle.__init__(self, rec.bottom_left, rec.width, rec.height, rec.angle)
 
-	def getGun(self):
+	def get_gun(self):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
 
-	def getArmor(self):
+	def get_firing_point(self):
+		gun = self.get_gun()
+		return gun.center.midpoint(gun.vertices[1].midpoint(gun.vertices[2]))
+
+	def get_armor(self):
 		return [Armor(Rectangle.by_center(self.vertices[i].midpoint(self.vertices[(i + 1) % 4]), \
 		    self.armor_size, 3, self.angle + i % 2 * 90), self) for i in range(4)]
 
-	def reduceHealth(self, amount):
+	def reduce_health(self, amount):
 		if self.alive():
-			if self.hasDefenseBuff():
+			if self.has_defense_buff():
 				amount /= 2
 			self.health = max(0, self.health - amount)
 
 
 class DummyRobot(Robot):
 
-	def getStrategy(self):
+	def get_strategy(self):
 		return DoNothing()
 
 
 class CrazyRobot(Robot):
 
-	def getStrategy(self):
+	def get_strategy(self):
 		return SpinAndFire()
 
 
 class AttackRobot(Robot):
 
-	def getStrategy(self):
+	def get_strategy(self):
 		target = self.team.enemy.robots[0]
 		return Attack()
 
@@ -490,5 +512,5 @@ class ManualControlRobot(Robot):
 		super().__init__(env, team, bottom_left, angle)
 		self.controls = controls
 
-	def getStrategy(self):
+	def get_strategy(self):
 		return Manual(self.controls)

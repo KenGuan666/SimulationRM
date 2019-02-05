@@ -16,7 +16,7 @@ class Strategy:
 
     def decide_with_default(self, robot):
         action = self.decide(robot)
-        default = [AutoAim(robot.getEnemy())]
+        default = [AutoAim(robot.get_enemy())]
         if robot.shooting == True:
             default += [Fire()]
         if action:
@@ -71,9 +71,9 @@ class AimAndFire(Strategy):
         self.target_robot = target_robot
 
     def decide(self, robot):
-        if floatEquals(robot.angleTo(self.target_robot.center), robot.angle + robot.gun_angle):
-            fire_line = LineSegment(robot.getGun().center, self.target_robot.center)
-            if robot.env.isBlocked(fire_line, self.target_robot):
+        if float_equals(robot.angle_to(self.target_robot.center), robot.angle + robot.gun_angle):
+            fire_line = LineSegment(robot.get_gun().center, self.target_robot.center)
+            if robot.env.is_blocked(fire_line, [self.target_robot]):
                 return
             if fire_line.length() > robot.range:
                 return Move(self.target_robot.center)
@@ -84,8 +84,8 @@ class AimAndFire(Strategy):
 class Attack(Strategy):
 
     def decide(self, robot):
-        enemy = robot.getEnemy()
-        loader = robot.team.loadingZone
+        enemy = robot.get_enemy()
+        loader = robot.team.loading_zone
         if robot.bullet > 0:
             return AimAndFire(enemy).decide(robot)
         elif loader.aligned(robot):
@@ -93,7 +93,7 @@ class Attack(Strategy):
                 return RefillCommand()
             return None
         else:
-            return Move(loader.loadingPoint)
+            return Move(loader.loading_point)
 
 
 class Manual(Strategy):

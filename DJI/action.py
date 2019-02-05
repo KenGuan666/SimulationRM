@@ -1,6 +1,7 @@
 
 from Objects import *
 from utils import *
+import numpy
 
 """
 An Action is a command to the robot
@@ -16,10 +17,10 @@ class Action:
         if not result_rec:
             self.post_resolve(robot)
             return True
-        if robot.env.isObstructed(result_rec, robot):
+        if robot.env.is_obstructed(result_rec, robot):
         	return False
 
-        robot.setPosition(result_rec)
+        robot.set_position(result_rec)
         self.post_resolve(robot)
         return True
 
@@ -31,8 +32,8 @@ class Step(Action):
 
     def __init__(self, robot_angle, dis):
         self.angle += robot_angle
-        self.dx = math.cos(toRadian(self.angle)) * dis
-        self.dy = math.sin(toRadian(self.angle)) * dis
+        self.dx = math.cos(to_radian(self.angle)) * dis
+        self.dy = math.sin(to_radian(self.angle)) * dis
 
     def simple_resolve(self, robot):
         return Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
@@ -57,7 +58,7 @@ class Rotate(Action):
         self.angle = angle
 
     def simple_resolve(self, robot):
-        if floatEquals(robot.angle, self.angle):
+        if float_equals(robot.angle, self.angle):
         	return
         diff = self.angle - robot.angle
         min_dis = min(diff, diff + 360, diff - 360, key = lambda n: abs(n))
@@ -101,7 +102,7 @@ class RefillCommand(Action):
 
     def resolve(self, robot):
         print(robot.team.name + " team issued reload command!")
-        robot.team.loadingZone.load(robot)
+        robot.team.loading_zone.load(robot)
 
 
 class RotateGunLeft(Action):
@@ -128,8 +129,8 @@ class AutoAim(Action):
         self.target = target_robot
 
     def resolve(self, robot):
-        goal, curr = robot.angleTo(self.target.center) - robot.angle, robot.gun_angle
-        if floatEquals(goal, curr):
+        goal, curr = robot.angle_to(self.target.center) - robot.angle, robot.gun_angle
+        if float_equals(goal, curr):
         	return
         diff = goal - curr
         if diff > 180:
@@ -152,14 +153,16 @@ class Aim(Action):
         self.target_point = target_point
 
     def resolve(self, robot):
-        return Rotate(robot.angleTo(self.target_point)).resolve(robot)
+        return Rotate(robot.angle_to(self.target_point)).resolve(robot)
 
 
 class Fire(Action):
 
     def resolve(self, robot):
         if robot.bullet > 0 and robot.cooldown == 0:
-            robot.env.characters['bullets'].append(Bullet(robot.getGun().center, robot.angle + robot.gun_angle, robot.env))
+            noise = np.random.normal(0, 3)
+            robot.env.characters['bullets'].append(Bullet(robot.get_firing_point(), \
+                robot.angle + robot.gun_angle + noise, robot.env, robot))
             robot.bullet -= 1
             robot.cooldown = robot.max_cooldown
 
@@ -182,9 +185,9 @@ class Move(Action):
         self.target_point = target_point
 
     def resolve(self, robot):
-        if robot.center.floatEquals(self.target_point):
+        if robot.center.float_equals(self.target_point):
             return
-        if floatEquals(robot.angleTo(self.target_point), robot.angle):
+        if float_equals(robot.angle_to(self.target_point), robot.angle):
             return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
                 robot.max_forward_speed)).resolve(robot)
         return Aim(self.target_point).resolve(robot)

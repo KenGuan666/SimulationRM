@@ -53,6 +53,7 @@ class Viewer(object):
         self.isopen = True
         self.geoms = []
         self.onetime_geoms = []
+        self.onetime_labels = []
         self.transform = Transform()
 
         glEnable(GL_BLEND)
@@ -81,6 +82,10 @@ class Viewer(object):
     def add_onetime(self, geom):
         self.onetime_geoms.append(geom)
 
+    def add_onetime_text(self, content, size, _x, _y, font='Times New Roman'):
+        self.onetime_labels.append(pyglet.text.Label(
+            content, font_name=font, font_size=size, color=(0,0,0,255), x=_x, y=_y))
+
     def render(self, return_rgb_array=False):
         glClearColor(1,1,1,1)
         self.window.clear()
@@ -91,6 +96,8 @@ class Viewer(object):
             geom.render()
         for geom in self.onetime_geoms:
             geom.render()
+        for label in self.onetime_labels:
+            label.draw()
         self.transform.disable()
         arr = None
         if return_rgb_array:
@@ -107,6 +114,7 @@ class Viewer(object):
             arr = arr[::-1,:,0:3]
         self.window.flip()
         self.onetime_geoms = []
+        self.onetime_labels = []
         return arr if return_rgb_array else self.isopen
 
     # Convenience

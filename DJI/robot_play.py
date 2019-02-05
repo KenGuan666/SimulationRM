@@ -3,8 +3,6 @@ import numpy as np
 import time
 import cv2
 
-import waypointing as wp
-
 env = gym.make('Robomaster-v0').unwrapped
 
 #path = wp.find_path(env.robot, env, [400,300])
@@ -12,7 +10,10 @@ env = gym.make('Robomaster-v0').unwrapped
 # path = wp.patrol(env.robot, env, 4, [[40, 400], [100, 300], [400, 300], [400, 450], [40, 400]])
 # robot_destination = np.array([0,0])
 #enemy_destination = np.array([0,0])
-for _ in range(18000):
+
+total_rounds = int(env.full_time / env.tau)
+
+for _ in range(total_rounds):
 	env.render()
 	env.step()
 	# if path is not None and len(path) > 0:

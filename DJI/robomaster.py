@@ -63,9 +63,9 @@ class RobomasterEnv(gym.Env):
 	# Defining course dimensions
 	width = 800
 	height = 500
-	tau = 1
-	full_time = 30000
-	display_visibility_map = True
+	tau = 0.02
+	full_time = 300
+	display_visibility_map = False
 
 	def __init__(self):
 
@@ -87,11 +87,11 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		myRobot = AttackRobot(self, BLUE, Point(170, 295), 0)
-		enemyRobot = ManualControlRobot("OSPWADBR", self, RED, Point(10, 10), 0)
-		myRobot.load(5)
-		enemyRobot.load(40)
-		self.characters['robots'] = [myRobot, enemyRobot]
+		my_robot = AttackRobot(self, BLUE, Point(170, 295), 0)
+		enemy_robot = ManualControlRobot("OSPWADBR", self, RED, Point(10, 10), 0)
+		my_robot.load(40)
+		enemy_robot.load(40)
+		self.characters['robots'] = [my_robot, enemy_robot]
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
@@ -103,17 +103,17 @@ class RobomasterEnv(gym.Env):
 				(Point(635, 260), 25, 100)]]
 
 		# Team start areas
-		self.startingZones = [StartingZone(p[0], p[1]) for p in [(Point(0, 0), BLUE),
+		self.starting_zones = [StartingZone(p[0], p[1]) for p in [(Point(0, 0), BLUE),
 		(Point(700, 0), BLUE), (Point(0, 400), RED), (Point(700, 400), RED)]]
 
-		self.defenseBuffZones = [DefenseBuffZone(p[0], p[1]) for p in [
+		self.defense_buff_zones = [DefenseBuffZone(p[0], p[1], self) for p in [
 		(Point(120, 275), BLUE), (Point(580, 125), RED)]]
 
-		self.loadingZones = [LoadingZone(p[0], p[1]) for p in [
+		self.loading_zones = [LoadingZone(p[0], p[1]) for p in [
 		(Point(350, 0), RED), (Point(350, 400), BLUE)]]
 
-		self.characters['zones'] = self.startingZones + self.defenseBuffZones + \
-		    self.loadingZones
+		self.characters['zones'] = self.starting_zones + self.defense_buff_zones + \
+		    self.loading_zones
 
 		# self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
 
@@ -123,9 +123,9 @@ class RobomasterEnv(gym.Env):
 		self.viewer.add_geom(boundary)
 
 		health_bar_params = (20, 260)
-		BLUE.set_health_bar(uprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
+		BLUE.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
 		    health_bar_params[0], health_bar_params[1]), self.viewer)
-		RED.set_health_bar(uprightRectangle(Point(self.width - health_bar_params[0] - 10, \
+		RED.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
 		    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
 
 		for char in self.inactables():
@@ -133,58 +133,65 @@ class RobomasterEnv(gym.Env):
 			for geom in geoms:
 				self.viewer.add_geom(geom)
 
-		if self.display_visibility_map:
-			delta = 25
-			points = []
-			for block in self.characters['obstacles'] + [self.my_team.loadingZone]:
-				for i in range(4):
-					delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
-					delta_x *= -delta
-					delta_y *= delta
-					point = block.vertices[i].move(delta_x, delta_y)
-					points.append(point)
-					if self.isLegal(point):
+
+		# Init movement network
+		delta = 25
+		network_points = []
+		for block in self.characters['obstacles'] + [self.my_team.loading_zone]:
+			for i in range(4):
+				delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
+				delta_x *= -delta
+				delta_y *= delta
+				point = block.vertices[i].move(delta_x, delta_y)
+				if self.is_legal(point):
+					network_points.append(point)
+					if self.display_visibility_map:
 						geom = rendering.Circle(point, 5)
 						self.viewer.add_geom(geom)
 
-			for i in range(len(points)):
-				for j in range(i + 1, len(points)):
-					if self.direct_reachable_forward(points[i], points[j], myRobot):
-						edge = rendering.PolyLine([points[i].toList(), points[j].toList()], False)
+		network_edges = []
+		for i in range(len(network_points)):
+			for j in range(i + 1, len(network_points)):
+				p_i, p_j = network_points[i], network_points[j]
+				if self.direct_reachable_forward(p_i, p_j, my_robot):
+					network_edges.append(LineSegment(p_i, p_j))
+					if self.display_visibility_map:
+						edge = rendering.PolyLine([p_i.to_list(), p_j.to_list()], False)
 						self.viewer.add_geom(edge)
 
 	def state(self):
 		return []
 
 	def actables(self):
-		return self.loadingZones + self.characters['robots'] + self.characters['bullets']
+		return self.loading_zones + self.defense_buff_zones + \
+		    self.characters['robots'] + self.characters['bullets']
 
 	def inactables(self):
-		return self.defenseBuffZones + self.startingZones + self.characters['obstacles']
+		return self.starting_zones + self.characters['obstacles']
 
 	def unpenetrables(self):
 		plates = []
 		for r in self.characters['robots']:
-			plates += r.getArmor()
-		return self.characters['robots'] + self.characters['obstacles'] + plates
+			plates += r.get_armor()
+		return plates + self.characters['robots'] + self.characters['obstacles']
 
 	def impermissibles(self, robot):
 		return list(filter(lambda r: not r == robot, self.characters['robots'])) \
 		    + self.characters['obstacles'] \
-		    + list(filter(lambda z: not z.permissble(robot.team), self.loadingZones))
+		    + list(filter(lambda z: not z.permissble(robot.team), self.loading_zones))
 
 	def direct_reachable_forward(self, fr, to, robot):
-		if fr.floatEquals(to):
+		if fr.float_equals(to):
 			return True
-		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angleTo(to))
+		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angle_to(to))
 		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width, \
-		    robot.height, fr.angleTo(to))
-		return not self.isObstructed(helper_rec, robot)
+		    robot.height, fr.angle_to(to))
+		return not self.is_obstructed(helper_rec, robot)
 
 	# def direct_reachable_sideways
 
-	def hasWinner(self):
-		my_health, enemy_health = self.my_team.totalHealth(), self.enemy_team.totalHealth()
+	def has_winner(self):
+		my_health, enemy_health = self.my_team.total_health(), self.enemy_team.total_health()
 		if my_health == 0:
 			return self.enemy_team
 		if enemy_health == 0:
@@ -203,7 +210,7 @@ class RobomasterEnv(gym.Env):
 		# enemy_action: a point(x, y) the enemy robot will travel to
 		# """
 
-		winner = self.hasWinner()
+		winner = self.has_winner()
 		if winner:
 			self.finished = True
 			if winner == "DRAW":
@@ -213,10 +220,10 @@ class RobomasterEnv(gym.Env):
 			self.close()
 			return
 
-		self.game_time += RobomasterEnv.tau
+		self.game_time += self.tau
 
-		if self.game_time % 3000 == 0:
-			for z in self.defenseBuffZones + self.loadingZones:
+		if int(self.game_time) % 30 == 0:
+			for z in self.defense_buff_zones + self.loading_zones:
 				z.reset()
 
 		for char in self.actables():
@@ -243,27 +250,29 @@ class RobomasterEnv(gym.Env):
 			geoms = char.render()
 			for geom in geoms:
 				self.viewer.add_onetime(geom)
+		self.viewer.add_onetime_text("Time: {0} seconds".format(round(self.game_time, 1)), \
+		    10, 12, self.height - 12)
 
 		return self.viewer.render(return_rgb_array = mode == 'rgb_array')
 
-	def isObstructed(self, rec, robot):
+	def is_obstructed(self, rec, robot):
 		for ob in self.impermissibles(robot):
 			if ob.intersects(rec):
 				return True
 		for v in rec.vertices:
-			if not self.isLegal(v):
+			if not self.is_legal(v):
 				return True
 		return False
 
 	# Returns the object blocking the line segment
 	# Returns False if it's not blocked
-	def isBlocked(self, seg, ignore=None):
+	def is_blocked(self, seg, ignore=[]):
 		for block in self.unpenetrables():
-			if block.blocks(seg) and not block is ignore:
+			if block.blocks(seg) and not block in ignore:
 				return block
 		return False
 
-	def isLegal(self, point):
+	def is_legal(self, point):
 		return point.x >= 0 and point.x <= self.width and point.y >= 0 and point.y <= self.height
 
 	def close(self):

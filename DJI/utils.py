@@ -14,22 +14,22 @@ class Point:
 		return Point(self.x + dx, self.y + dy)
 
 	def move_seg_by_angle(self, angle, dis):
-		angle = toRadian(angle)
+		angle = to_radian(angle)
 		to = self.move(dis * math.cos(angle), dis * math.sin(angle))
 		return LineSegment(self, to)
 
 	def diff(self, fr):
 		return Vector(self.x - fr.x, self.y - fr.y)
 
-	def angleTo(self, to):
+	def angle_to(self, to):
 		if self.x == to.x:
 			if self.y > to.y:
 				return 270
 			return 90
-		return toDegree(to.diff(self).angle_radian())
+		return to_degree(to.diff(self).angle_radian())
 
-	def floatEquals(self, other):
-		return floatEquals(self.x, other.x) and floatEquals(self.y, other.y)
+	def float_equals(self, other):
+		return float_equals(self.x, other.x) and float_equals(self.y, other.y)
 
 	def dis(self, to):
 		return math.sqrt((self.x - to.x) ** 2 + (self.y - to.y) ** 2)
@@ -41,7 +41,7 @@ class Point:
 		mid = self.midpoint(other)
 		return [self.midpoint(mid) + mid + mid.midpoint(other)]
 
-	def toList(self):
+	def to_list(self):
 		return [self.x, self.y]
 
 	def __repr__(self):
@@ -114,38 +114,45 @@ class Team:
 			self.dark_color = COLOR_DARKRED
 			self.color = COLOR_RED
 
-	def addRobot(self, robot):
+	def add_robot(self, robot):
 		self.robots.append(robot)
 
-	def addDefenseBuff(self, time):
+	def add_defense_buff(self, time):
 		for r in self.robots:
-			r.addDefenseBuff(time)
+			r.add_defense_buff(time)
 
-	def totalHealth(self):
+	def total_health(self):
 		return sum([r.health for r in self.robots])
 
 	def set_health_bar(self, rec, viewer):
 		self.bar = rec
 		if len(self.robots) == 1:
 			self.robots[0].health_bar = rec
-			viewer.add_geom(rendering.PolyLine([p.toList() for p in rec.vertices], True))
+			viewer.add_geom(rendering.PolyLine([p.to_list() for p in rec.vertices], True))
 		else:
 			left_middle = rec.vertices[0].midpoint(rec.vertices[3])
 			self.robots[0].health_bar = type(rec)(rec.vertices[0], \
 			    rec.width, rec.height/2)
 			self.robots[1].health_bar = type(rec)(left_middle, \
 			    rec.width, rec.height/2)
-			viewer.add_geom(rendering.PolyLine([p.toList() for p in self.robots[0].health_bar.vertices], True))
-			viewer.add_geom(rendering.PolyLine([p.toList() for p in self.robots[1].health_bar.vertices], True))
+			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[0].health_bar.vertices], True))
+			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[1].health_bar.vertices], True))
 
-def toRadian(deg):
+def to_radian(deg):
 	return deg / 180 * math.pi
 
-def toDegree(rad):
+def to_degree(rad):
 	return rad * 180 / math.pi
 
-def floatEquals(a, b, error_threshold=0.01):
+def float_equals(a, b, error_threshold=0.01):
 	return abs(a - b) < error_threshold
+
+def sign(x):
+	if x > 0:
+		return 1
+	if x < 0:
+		return -1
+	return 0
 
 
 COLOR_BLUE = (0, 0, 1)
@@ -155,3 +162,4 @@ COLOR_DARKRED = (0.5, 0, 0)
 COLOR_GREEN = (0, 1, 0)
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (1, 1, 1)
+COLOR_YELLOW = (1, 1, 0)
