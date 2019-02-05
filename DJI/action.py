@@ -161,7 +161,7 @@ class Fire(Action):
     def resolve(self, robot):
         if robot.bullet > 0 and robot.cooldown == 0:
             noise = np.random.normal(0, 3)
-            robot.env.characters['bullets'].append(Bullet(robot.get_firing_point(), \
+            robot.env.characters['bullets'].append(Bullet(robot.get_gun().center, \
                 robot.angle + robot.gun_angle + noise, robot.env, robot))
             robot.bullet -= 1
             robot.cooldown = robot.max_cooldown
@@ -187,6 +187,13 @@ class Move(Action):
     def resolve(self, robot):
         if robot.center.float_equals(self.target_point):
             return
+        if robot.env.direct_reachable_forward(robot.center, self.target_point, robot):
+            if float_equals(robot.angle_to(self.target_point), robot.angle):
+                return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
+                    robot.max_forward_speed)).resolve(robot)
+            return Aim(self.target_point).resolve(robot)
+
+        # WAITING ON BETTER PATH ALGORITHM
         if float_equals(robot.angle_to(self.target_point), robot.angle):
             return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
                 robot.max_forward_speed)).resolve(robot)

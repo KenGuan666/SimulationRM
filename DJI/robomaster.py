@@ -269,6 +269,8 @@ class RobomasterEnv(gym.Env):
 	def is_blocked(self, seg, ignore=[]):
 		for block in self.unpenetrables():
 			if block.blocks(seg) and not block in ignore:
+				if block.type == "ARMOR" and block.master in ignore:
+					continue
 				return block
 		return False
 

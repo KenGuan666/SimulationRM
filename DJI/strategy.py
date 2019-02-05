@@ -72,12 +72,10 @@ class AimAndFire(Strategy):
         self.target_robot = target_robot
 
     def decide(self, robot):
+        if robot.center.dis(self.target_robot.center) > robot.range or \
+           robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), [robot, self.target_robot]):
+            return [Move(self.target_robot.center), SwitchShootingOff()]
         if float_equals(robot.angle_to(self.target_robot.center), robot.angle + robot.gun_angle):
-            fire_line = LineSegment(robot.get_gun().center, self.target_robot.center)
-            if robot.env.is_blocked(fire_line, [self.target_robot]):
-                return
-            if fire_line.length() > robot.range:
-                return Move(self.target_robot.center)
             return SwitchShootingOn()
         return [SwitchShootingOff(), Aim(self.target_robot.center)]
 

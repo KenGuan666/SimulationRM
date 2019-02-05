@@ -278,7 +278,6 @@ class LoadingZone(Zone):
 	def render(self):
 		circle = rendering.Circle(self.center, 12)
 		circle.set_color(self.color[0], self.color[1], self.color[2])
-		bullets = []
 		if self.loading_time > 0:
 			self.env.viewer.add_onetime_text("used: {0}, loaded: {1}".format(int(self.used), int(self.loaded)), \
 			    10, self.center.x, self.center.y)
@@ -340,7 +339,6 @@ Describes a bullet. Currently modeled as having constant speed and no volume
 class Bullet:
 
 	damage = 50
-	range = 300
 
 	def __init__(self, point, dir, env, master):
 		self.delay = 0  # Models the delay from firing decision to bullet actually flying
@@ -350,6 +348,7 @@ class Bullet:
 		self.env = env
 		self.active = True
 		self.master = master
+		self.range = master.range
 
 	def act(self):
 		if not self.active:
@@ -494,10 +493,6 @@ class Robot(Rectangle):
 	def get_gun(self):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
-
-	def get_firing_point(self):
-		gun = self.get_gun()
-		return gun.center.midpoint(gun.vertices[1].midpoint(gun.vertices[2]))
 
 	def get_armor(self):
 		return [Armor(Rectangle.by_center(self.vertices[i].midpoint(self.vertices[(i + 1) % 4]), \
