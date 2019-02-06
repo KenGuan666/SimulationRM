@@ -30,27 +30,42 @@ class Action:
         pass
 
 
-class Step(Action):
+class Move(Action):
+
+    steps = 6
 
     def __init__(self, robot_angle, dis):
         self.angle += robot_angle
         self.dx = math.cos(to_radian(self.angle)) * dis
         self.dy = math.sin(to_radian(self.angle)) * dis
 
+    def resolve(self, robot):
+        single_step = Step(self.angle, self.dx / self.steps, self.dy / self.steps)
+        for _ in range(self.steps):
+            if not single_step.resolve(robot):
+                return
+
+class Step(Action):
+
+    def __init__(self, angle, dx, dy):
+        self.angle = angle
+        self.dx = dx
+        self.dy = dy
+
     def simple_resolve(self, robot):
         return Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
 
 
-class StepForward(Step):
+class MoveForward(Move):
     angle = 0
 
-class StepBackward(Step):
+class MoveBackward(Move):
     angle = 180
 
-class StepLeft(Step):
+class MoveLeft(Move):
     angle = 90
 
-class StepRight(Step):
+class MoveRight(Move):
     angle = 270
 
 
@@ -182,6 +197,15 @@ class SwitchShootingOff(Action):
         robot.shooting = False
 
 
+class AutoShootingControl(Action):
+
+    def resolve(self, robot):
+        if robot.aimed_at_enemy():
+            robot.shooting = True
+        else:
+            robot.shooting = False
+
+
 class Move(Action):
 
     def __init__(self, target_point):
@@ -192,17 +216,12 @@ class Move(Action):
             return
         if robot.env.direct_reachable_forward(robot.center, self.target_point, robot, True):
             if float_equals(robot.angle_to(self.target_point), robot.angle):
-                return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
-                    robot.max_forward_speed)).resolve(robot)
+                return MoveForward(robot.angle, min(robot.center.dis(self.target_point), \
+                   robot.max_speed)).resolve(robot)
             return Aim(self.target_point).resolve(robot)
 
         # WAITING ON BETTER PATH ALGORITHM
         return astar_ignore_enemy(self.target_point, robot)
-        # if float_equals(robot.angle_to(self.target_point), robot.angle):
-        #     return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
-        #         robot.max_forward_speed)).resolve(robot)
-        # return Aim(self.target_point).resolve(robot)
-
 
 
 ## PATH ALGORITHM GOES HERE FOR NOW
@@ -236,7 +255,8 @@ def astar_ignore_enemy(to, robot):
 
     for i in range(len(path) - 1):
         edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
-        env.viewer.add_onetime(edge)
+        if env.rendering:
+            env.viewer.add_onetime(edge)
 
     return Move(points[path[1]]).resolve(robot)
     # for e in total_edges:

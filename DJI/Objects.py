@@ -213,6 +213,9 @@ class Zone(UprightRectangle):
 		return super().render() + Rectangle(self.bottom_left.move(8, 8), \
 		    self.width - 16, self.height - 16).render(COLOR_WHITE)
 
+	def generate_state(self):
+		return []
+
 
 """
 Loading zones that provide 17mm bullets
@@ -224,10 +227,8 @@ class LoadingZone(Zone):
 		team.loading_zone = self
 		self.loading_point = self.center
 		self.env = env
-		self.loading_time = 0
-		self.used = 0
 		self.loaded = 0
-		self.reload_time = 100 / self.load_speed
+		self.to_load = 0
 
 	fills = 2
 	tolerance_radius = 3
@@ -247,17 +248,17 @@ class LoadingZone(Zone):
 		    float_equals(self.loading_point.y, robot.center.y, self.tolerance_radius)
 
 	def act(self):
-		load_per_step = self.load_speed * self.env.tau
-		if self.loading_time > 0:
-			self.loading_time -= self.env.tau
-			self.used += load_per_step
+		if self.loading():
+			load_per_step = self.load_speed * self.env.tau
+			self.to_load -= load_per_step
 			for r in self.team.robots:
 				if self.aligned(r):
-					self.loaded += load_per_step
-					r.load(load_per_step)
+					self.loaded, before = self.loaded + load_per_step, self.loaded
+					diff = math.floor(self.loaded) - math.floor(before)
+					if diff > 0:
+						r.load(diff)
 		else:
-			self.loading_time = 0
-			self.used = 0
+			self.to_load = 0
 			self.loaded = 0
 		if any([self.aligned(r) for r in self.team.robots]):
 			self.color = self.team.color
@@ -269,8 +270,11 @@ class LoadingZone(Zone):
 			print("Team " + self.team.name + " has no more reloads available.")
 			return
 		print("Reload command successful.")
-		self.loading_time += self.reload_time
+		self.to_load += 100
 		self.fills -= 1
+
+	def loading(self):
+		return self.to_load > 0
 
 	def reset(self):
 		self.fills = 2
@@ -278,10 +282,13 @@ class LoadingZone(Zone):
 	def render(self):
 		circle = rendering.Circle(self.center, 12)
 		circle.set_color(self.color[0], self.color[1], self.color[2])
-		if self.loading_time > 0:
-			self.env.viewer.add_onetime_text("used: {0}, loaded: {1}".format(int(self.used), int(self.loaded)), \
+		if self.loading() > 0:
+			self.env.viewer.add_onetime_text("to_load: {0}, loaded: {1}".format(int(self.to_load), int(self.loaded)), \
 			    10, self.center.x, self.center.y)
 		return super().render() + [circle]
+
+	def generate_state(self):
+		return [self.fills, self.to_load, self.loaded]
 
 
 """
@@ -327,6 +334,12 @@ class DefenseBuffZone(Zone):
 	def render(self):
 		return super().render() + self.d_helper.render(self.color)
 
+	def generate_state(self):
+		active_flag = 0
+		if self.active:
+			active_flag = 1
+		return [active_flag] + self.touch_record
+
 
 class StartingZone(Zone):
 
@@ -349,6 +362,11 @@ class Bullet:
 		self.active = True
 		self.master = master
 		self.range = master.range
+
+	def init_from_state(state, env):
+		self = Bullet(Point(state[0], state[1]), 0, env, env.characters['robots'][state[3]])
+		self.dir = state[2]
+		return self
 
 	def act(self):
 		if not self.active:
@@ -382,6 +400,9 @@ class Bullet:
 	def render(self):
 		return [rendering.Circle(self.point, 2)]
 
+	def generate_state(self):
+		return [self.point.x, self.point.y, self.dir, self.master.id]
+
 
 class Armor(Rectangle):
 
@@ -399,11 +420,12 @@ class Armor(Rectangle):
 The robot object -
 Currently modeled as a Rectangle object by assumption that gun has negligible chance of blocking a bullet
 
-To modify strategy, extend the class and override the `getStrategy` method
+To modify strategy, extend the class and override the `get_strategy` method
 """
 class Robot(Rectangle):
 
 	type = 'ROBOT'
+	strategy_id = 0
 
 	width = 55.0
 	height = 42.0
@@ -414,15 +436,16 @@ class Robot(Rectangle):
 	range = 300 # More on this later
 	bullet_capacity = 150
 
-	max_forward_speed = 1.5
-	max_sideway_speed = 1
-	max_rotation_speed = 1.5
+	max_speed = 311
+	max_rotation_speed = 330
 	max_gun_angle = 90
 	max_gun_rotation_speed = 3
 	max_cooldown = 0.2
 
 	def __init__(self, env, team, bottom_left, angle=0):
 		self.gun_angle = 0
+		self.max_speed *= env.tau
+		self.max_rotation_speed *= env.tau
 		self.env = env
 		self.team = team
 		self.color = team.color
@@ -435,6 +458,19 @@ class Robot(Rectangle):
 		self.bullet = 0
 		self.preset_action = None
 		self.preset_timer = 0
+
+	def init_from_state(state, env, team):
+		robot_type = strats[state[9]]
+		self = robot_type(env, team, Point(state[0], state[1]), state[2])
+		self.gun_angle = state[3]
+		self.bullet = state[4]
+		self.cooldown = state[5] * env.tau
+		self.defense_buff_timer = state[6] * env.tau
+		if state[7]:
+			self.shooting = True
+		self.health = state[8]
+
+		return self
 
 	def render(self):
 		if self.alive():
@@ -499,6 +535,14 @@ class Robot(Rectangle):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
 
+	def fire_line(self):
+		return self.get_gun().center.move_seg_by_angle(self.angle + self.gun_angle, self.range)
+
+	def aimed_at_enemy(self):
+		line_block = self.env.is_blocked(self.fire_line(), [self])
+		return line_block and (line_block.type == "ROBOT" and not (self.team is line_block.team) or \
+		    line_block.type == "ARMOR" and not (self.team is line_block.master.team))
+
 	def get_armor(self):
 		return [Armor(Rectangle.by_center(self.vertices[i].midpoint(self.vertices[(i + 1) % 4]), \
 		    self.armor_size, 3, self.angle + i % 2 * 90), self) for i in range(4)]
@@ -509,6 +553,14 @@ class Robot(Rectangle):
 				amount /= 2
 			self.health = max(0, self.health - amount)
 
+	def generate_state(self):
+		shooting_flag = 0
+		if self.shooting:
+			shooting_flag = 1
+		return [self.bottom_left.x, self.bottom_left.y, self.angle, self.gun_angle, self.bullet, \
+		        int(self.cooldown / self.env.tau), int(self.defense_buff_timer / self.env.tau), \
+				shooting_flag, self.health, self.strategy_id]
+
 
 class DummyRobot(Robot):
 
@@ -518,18 +570,28 @@ class DummyRobot(Robot):
 
 class CrazyRobot(Robot):
 
+	strategy_id = 1
+
 	def get_strategy(self):
 		return SpinAndFire()
 
 
 class AttackRobot(Robot):
 
+	strategy_id = 2
+
 	def get_strategy(self):
 		target = self.team.enemy.robots[0]
 		return Attack()
 
 
+class AttackWithRadiusRobot(Robot):
+	pass
+
+
 class ManualControlRobot(Robot):
+
+	strategy_id = 2
 
 	def __init__(self, controls, env, team, bottom_left, angle=0):
 		super().__init__(env, team, bottom_left, angle)
@@ -537,3 +599,16 @@ class ManualControlRobot(Robot):
 
 	def get_strategy(self):
 		return Manual(self.controls)
+
+
+class TrainingRobot(Robot):
+
+	def set_strategy(self, strat):
+		self.strat = strat
+
+	def get_strategy(self):
+		return self.strat
+
+
+
+strats = [DummyRobot, CrazyRobot, AttackRobot]

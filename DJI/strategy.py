@@ -17,7 +17,7 @@ class Strategy:
 
     def decide_with_default(self, robot):
         action = self.decide(robot)
-        default = [AutoAim(robot.get_enemy())]
+        default = [AutoAim(robot.get_enemy()), AutoShootingControl()]
         if robot.shooting == True:
             default += [Fire()]
         if action:
@@ -53,20 +53,18 @@ class DoNothing(Strategy):
 class SpinAndFire(Strategy):
 
     def decide(self, robot):
-        actions = []
-        if robot.angle % 90 == 0:
-            actions.append(SwitchShootingOn())
-        if robot.angle < 180:
-            return actions + [Rotate(180)]
-        if robot.angle >= 180 and robot.angle < 270:
-            return actions + [Rotate(270)]
-        return actions + [Rotate(0)]
+        # line_block = robot.env.is_blocked(robot.fire_line(), [robot])
+        # if line_block:
+        #     if line_block.type == "ROBOT" and not (robot.team is line_block.team) or \
+        #        line_block.type == "ARMOR" and not (robot.team is line_block.master.team):
+        #         return []
+        pass
 
     def name():
         return "SPIN&FIRE"
 
 
-class AimAndFire(Strategy):
+class Chase(Strategy):
 
     def __init__(self, target_robot):
         self.target_robot = target_robot
@@ -74,10 +72,10 @@ class AimAndFire(Strategy):
     def decide(self, robot):
         if robot.center.dis(self.target_robot.center) > robot.range or \
            robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), [robot, self.target_robot]):
-            return [Move(self.target_robot.center), SwitchShootingOff()]
+            return [Move(self.target_robot.center)]
         if float_equals(robot.angle_to(self.target_robot.center), robot.angle + robot.gun_angle):
-            return SwitchShootingOn()
-        return [SwitchShootingOff(), Aim(self.target_robot.center)]
+            return None
+        return [Aim(self.target_robot.center)]
 
 
 class Attack(Strategy):
@@ -85,14 +83,19 @@ class Attack(Strategy):
     def decide(self, robot):
         enemy = robot.get_enemy()
         loader = robot.team.loading_zone
-        if robot.bullet > 0:
-            return AimAndFire(enemy).decide(robot)
-        elif loader.aligned(robot):
-            if loader.fills > 0:
+        if loader.aligned(robot):
+            if loader.loading():
+                return None
+            if robot.bullet < robot.bullet_capacity - 100 and loader.fills > 0:
                 return RefillCommand()
-            return None
+        if robot.bullet > 0:
+            return Chase(enemy).decide(robot)
         else:
             return Move(loader.loading_point)
+
+
+class AttackWithR(Strategy):
+    pass
 
 
 class Manual(Strategy):
@@ -104,6 +107,8 @@ class Manual(Strategy):
         self.shooting = False
 
     def decide(self, robot):
+        if not robot.env.rendering:
+            return
         window = robot.env.viewer.window
         actions = []
 
@@ -122,11 +127,11 @@ class Manual(Strategy):
         if keyboard.is_pressed(self.turnright):
             actions.append(RotateRight(robot.max_rotation_speed))
         if keyboard.is_pressed(self.up):
-            actions.append(StepForward(robot.angle, robot.max_forward_speed))
+            actions.append(MoveForward(robot.angle, robot.max_speed))
         if keyboard.is_pressed(self.down):
-            actions.append(StepBackward(robot.angle, robot.max_forward_speed))
+            actions.append(MoveBackward(robot.angle, robot.max_speed))
         if keyboard.is_pressed(self.left):
-            actions.append(StepLeft(robot.angle, robot.max_forward_speed))
+            actions.append(MoveLeft(robot.angle, robot.max_speed))
         if keyboard.is_pressed(self.right):
-            actions.append(StepRight(robot.angle, robot.max_forward_speed))
+            actions.append(MoveRight(robot.angle, robot.max_speed))
         return actions

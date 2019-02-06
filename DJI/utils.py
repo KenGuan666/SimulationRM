@@ -138,6 +138,15 @@ class Team:
 			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[0].health_bar.vertices], True))
 			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[1].health_bar.vertices], True))
 
+	def generate_state(self):
+		state = []
+		for r in self.robots:
+			state += r.generate_state()
+		if len(self.robots) == 1:
+			length = len(state)
+			state += [0] * length
+		return state
+
 def to_radian(deg):
 	return deg / 180 * math.pi
 

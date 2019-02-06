@@ -66,7 +66,50 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 0.02
 	full_time = 300
-	display_visibility_map = True
+	display_visibility_map = False
+	rendering = True
+
+	def init_from_state(self, state):
+		self.__init__()
+
+		self.my_team.robots, self.enemy_team.robots = [], []
+
+		self.game_time = state[0] * self.tau
+
+		def slice_helper(list, seg_len):
+			return [list[i:i+seg_len] for i in range(0, len(list), seg_len)]
+
+		my_robots = [Robot.init_from_state(state, self, self.my_team) for state in slice_helper(state[2:22], 10) if any(state)]
+		enemy_robots = [Robot.init_from_state(state, self, self.enemy_team) for state in slice_helper(state[22:42], 10) if any(state)]
+		self.characters['robots'] = my_robots + enemy_robots
+		for i in range(len(self.characters['robots'])):
+			self.characters['robots'][i].id = i
+
+		if state[42]:
+			self.my_team.defense_buff_zone.active = True
+		self.my_team.defense_buff_zone.touch_record = state[43:47]
+		self.my_team.loading_zone.refills = state[52]
+		self.my_team.loading_zone.to_load = state[53]
+		self.my_team.loading_zone.loaded = state[54]
+		if state[47]:
+			self.enemy_team.defense_buff_zone.active = True
+		self.enemy_team.defense_buff_zone.touch_record = state[48:52]
+		self.my_team.loading_zone.refills = state[55]
+		self.my_team.loading_zone.to_load = state[56]
+		self.my_team.loading_zone.loaded = state[57]
+
+		for state in slice_helper(state[58:], 4):
+			if not any(state):
+				break
+			self.characters['bullets'].append(Bullet.init_from_state(state, self))
+
+		if self.rendering:
+			health_bar_params = (20, 260)
+			self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
+			    health_bar_params[0], health_bar_params[1]), self.viewer)
+			self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
+			    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+
 
 	def __init__(self):
 
@@ -89,7 +132,7 @@ class RobomasterEnv(gym.Env):
 
 		# Initialize robots
 		my_robot = AttackRobot(self, BLUE, Point(780, 480), 180)
-		enemy_robot = ManualControlRobot("OSPWADBR", self, RED, Point(10, 10), 0)
+		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(10, 10), 0)
 		my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
@@ -111,28 +154,28 @@ class RobomasterEnv(gym.Env):
 		(Point(120, 275), BLUE), (Point(580, 125), RED)]]
 
 		self.loading_zones = [LoadingZone(p[0], p[1], self) for p in [
-		(Point(350, 0), RED), (Point(350, 400), BLUE)]]
+		(Point(350, 400), BLUE), (Point(350, 0), RED)]]
 
 		self.characters['zones'] = self.starting_zones + self.defense_buff_zones + \
 		    self.loading_zones
 
 		# self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
-
-		self.viewer = rendering.Viewer(self.width, self.height)
-
 		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
-		self.viewer.add_geom(boundary)
 
-		health_bar_params = (20, 260)
-		BLUE.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-		    health_bar_params[0], health_bar_params[1]), self.viewer)
-		RED.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-		    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+		if self.rendering:
+			self.viewer = rendering.Viewer(self.width, self.height)
+			self.viewer.add_geom(boundary)
 
-		for char in self.inactables():
-			geoms = char.render()
-			for geom in geoms:
-				self.viewer.add_geom(geom)
+			health_bar_params = (20, 260)
+			BLUE.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
+			    health_bar_params[0], health_bar_params[1]), self.viewer)
+			RED.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
+			    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+
+			for char in self.inactables():
+				geoms = char.render()
+				for geom in geoms:
+					self.viewer.add_geom(geom)
 
 
 		# Init movement network
@@ -185,7 +228,7 @@ class RobomasterEnv(gym.Env):
 		plates = []
 		for r in self.characters['robots']:
 			plates += r.get_armor()
-		return plates + self.characters['robots'] + self.characters['obstacles']
+		return self.characters['obstacles'] + plates + self.characters['robots']
 
 	def impermissibles(self, robot):
 		return list(filter(lambda r: not r == robot, self.characters['robots'])) \
@@ -243,6 +286,10 @@ class RobomasterEnv(gym.Env):
 		for char in self.actables():
 			char.act()
 
+		self.state = self.generate_state()
+		if self.rendering:
+			self.render()
+
 		# NOT YET IMPLEMENTED
 		reward = 0.0
 
@@ -253,9 +300,10 @@ class RobomasterEnv(gym.Env):
 
 	# Resets the field to the starting positions
 	def reset(self):
-		self.viewer.close()
+		if self.rendering:
+			self.viewer.close()
 		self.__init__()
-		return np.array(self.state)
+		return None
 
 	# Renders the field for human observation
 	def render(self, mode='human'):
@@ -299,6 +347,44 @@ class RobomasterEnv(gym.Env):
 
 	def is_legal(self, point):
 		return point.x >= 0 and point.x <= self.width and point.y >= 0 and point.y <= self.height
+
+	"""
+	State:
+	[0]: game_time. Total number of steps elapsed. Equivalent to game_time/50 seconds
+	[1]: number of robots on each team
+	[2-41]: state of 4 robots. non-existant robots are 0 padded. 9 numbers each
+	        [2-3]: x, y coord of center of robot
+			[4]: robot angle in degrees  [5]: robot gun angle relative to front in degrees
+			[6]: bullet count [7]: remaining number of rounds of shooting cooldown
+			[8]: remaining number of rounds of defense buff [9]: flag=1 if robot is shooting 0 otherwise
+			[10]: remaining health  [11]: robot type index
+	[42-51]: state of two defense zones.
+			[42]: flag=1 if can be activated 0 otherwise
+			[43-46]: number of seconds the zone has been touched by each robot
+	[52-57]: state of two loading zones.
+			[52]: number of refills available
+			[53]: number of bullets not yet poured from previous refill
+			[54]: number of bullets loaded into the current robot
+	[58-297]: state of 60 bullets.
+			[58-59]: x, y coord of bullet
+			[60]: direction of bullet in radian
+			[61]: id of bullet's master robot
+	"""
+
+	def generate_state(self):
+		game_time = [int(self.game_time / self.tau)]
+		num_robots_per_team = [int(len(self.characters['robots']) / 2)]
+		blue_team_state = self.my_team.generate_state()
+		red_team_state = self.enemy_team.generate_state()
+		state = game_time + num_robots_per_team + blue_team_state + red_team_state
+		for z in self.characters['zones']:
+			state += z.generate_state()
+		bullet_count = len(self.characters['bullets'])
+		for b in self.characters['bullets']:
+			state += b.generate_state()
+		state += [0] * 4 * (60 - bullet_count)
+		print(state)
+		return state
 
 	def close(self):
 		if self.viewer:
