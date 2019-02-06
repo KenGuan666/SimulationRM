@@ -11,6 +11,7 @@ import rendering
 from gym.utils import seeding
 from gym.envs.DJI.Objects import *
 import numpy as np
+import networkx as nx
 import cv2
 
 """
@@ -87,8 +88,8 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		my_robot = AttackRobot(self, BLUE, Point(170, 295), 0)
-		enemy_robot = ManualControlRobot("OSPWADBR", self, RED, Point(400, 100), 0)
+		my_robot = AttackRobot(self, BLUE, Point(780, 480), 180)
+		enemy_robot = ManualControlRobot("OSPWADBR", self, RED, Point(10, 10), 0)
 		my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
@@ -135,9 +136,11 @@ class RobomasterEnv(gym.Env):
 
 
 		# Init movement network
+		G = nx.Graph()
 		delta = 25
 		self.network_points = []
-		for block in self.characters['obstacles'] + [self.my_team.loading_zone]:
+		id = 0
+		for block in self.characters['obstacles'] + [self.enemy_team.loading_zone]:
 			for i in range(4):
 				delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
 				delta_x *= -delta
@@ -145,18 +148,28 @@ class RobomasterEnv(gym.Env):
 				point = block.vertices[i].move(delta_x, delta_y)
 				if self.is_legal(point):
 					self.network_points.append(point)
-					geom = rendering.Circle(point, 5)
-					self.viewer.add_geom(geom)
+					G.add_node(id)
+					point.id = id
+					id += 1
 
 		self.network_edges = []
 		for i in range(len(self.network_points)):
 			for j in range(i + 1, len(self.network_points)):
 				p_i, p_j = self.network_points[i], self.network_points[j]
-				if self.direct_reachable_forward(p_i, p_j, my_robot):
-					self.network_edges.append(LineSegment(p_i, p_j))
-					if self.display_visibility_map:
-						edge = rendering.PolyLine([p_i.to_list(), p_j.to_list()], False)
-						self.viewer.add_geom(edge)
+				if self.direct_reachable_forward(p_i, p_j, my_robot, True):
+					# self.network_edges.append(LineSegment(p_i, p_j))
+					G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
+
+		self.network = G
+
+		if self.display_visibility_map:
+		    for e in self.network_edges:
+		        edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
+		        self.viewer.add_geom(edge)
+
+		    for p in self.network_points:
+		        geom = rendering.Circle(p, 5)
+		        self.viewer.add_geom(geom)
 
 	def state(self):
 		return []
@@ -179,12 +192,14 @@ class RobomasterEnv(gym.Env):
 		    + self.characters['obstacles'] \
 		    + list(filter(lambda z: not z.permissble(robot.team), self.loading_zones))
 
-	def direct_reachable_forward(self, fr, to, robot):
+	def direct_reachable_forward(self, fr, to, robot, ignore_robots=False):
 		if fr.float_equals(to):
 			return True
 		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angle_to(to))
-		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width, \
+		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width / 2, \
 		    robot.height, fr.angle_to(to))
+		if ignore_robots:
+			return not self.is_obstructed_ignore_robots(helper_rec, robot)
 		return not self.is_obstructed(helper_rec, robot)
 
 	# def direct_reachable_sideways
@@ -256,6 +271,15 @@ class RobomasterEnv(gym.Env):
 
 	def is_obstructed(self, rec, robot):
 		for ob in self.impermissibles(robot):
+			if ob.intersects(rec):
+				return True
+		for v in rec.vertices:
+			if not self.is_legal(v):
+				return True
+		return False
+
+	def is_obstructed_ignore_robots(self, rec, robot):
+		for ob in self.characters['obstacles'] + [robot.team.enemy.loading_zone]:
 			if ob.intersects(rec):
 				return True
 		for v in rec.vertices:

@@ -16,12 +16,7 @@ total_rounds = int(env.full_time / env.tau)
 for _ in range(total_rounds):
 	env.render()
 	env.step()
-	# if path is not None and len(path) > 0:
-	# 	robot_destination = path[0]
-	# env.step(robot_destination, np.array([600, 400]))
-	# path = wp.new_path(env.robot, path)
-	#path_for_enemy = new_path(env.enemy, path_for_enemy)
-	# time.sleep(.1)
-	time.sleep(0.01)
+
+	# time.sleep(0.01)
 	if env.finished:
 		break

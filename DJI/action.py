@@ -3,6 +3,7 @@ from Objects import *
 from utils import *
 import rendering
 import numpy
+import networkx as nx
 
 """
 An Action is a command to the robot
@@ -186,18 +187,16 @@ class Move(Action):
         self.target_point = target_point
 
     def resolve(self, robot):
-        wait = 10
         if robot.center.float_equals(self.target_point):
             return
-        if robot.env.direct_reachable_forward(robot.center, self.target_point, robot):
+        if robot.env.direct_reachable_forward(robot.center, self.target_point, robot, True):
             if float_equals(robot.angle_to(self.target_point), robot.angle):
                 return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
                     robot.max_forward_speed)).resolve(robot)
             return Aim(self.target_point).resolve(robot)
 
         # WAITING ON BETTER PATH ALGORITHM
-        if int(robot.env.game_time / robot.env.tau) % wait == 0:
-            construct_graph(self.target_point, robot)
+        return astar_ignore_enemy(self.target_point, robot)
         # if float_equals(robot.angle_to(self.target_point), robot.angle):
         #     return StepForward(robot.angle, min(robot.center.dis(self.target_point), \
         #         robot.max_forward_speed)).resolve(robot)
@@ -207,26 +206,42 @@ class Move(Action):
 
 ## PATH ALGORITHM GOES HERE FOR NOW
 
-def construct_graph(to, robot):
+def astar_ignore_enemy(to, robot):
     env = robot.env
-    points = env.network_points + [robot.center, to]
-    real_edges = []
-    for edge in env.network_edges:
-        blocked = False
-        for r in env.characters['robots']:
-            if r.blocks(edge):
-                blocked = True
-                break
-        if not blocked:
-            real_edges.append(edge)
-    for p in env.network_points:
-        from_edge = LineSegment(robot.center, p)
-        if not env.is_blocked(from_edge, [robot]):
-            real_edges.append(from_edge)
-        to_edge = LineSegment(p, to)
-        if not env.is_blocked(to_edge):
-            real_edges.append(to_edge)
+    G = env.network.copy()
+    fr_id = len(env.network_points)
+    to_id = fr_id + 1
+    G.add_nodes_from([fr_id, fr_id + 1])
 
-    for e in real_edges:
-        edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
+    points = env.network_points + [robot.center, to]
+    closest_point, min_dis = None, 9999
+    # total_edges = []
+    for p in env.network_points:
+        if env.direct_reachable_forward(robot.center, p, robot):
+            # total_edges.append(LineSegment(robot.center, p))
+            G.add_edge(fr_id, p.id, weight=robot.center.dis(p))
+        dis = p.dis(to)
+        if dis < min_dis:
+            closest_point, min_dis = p, dis
+        if env.direct_reachable_forward(p, to, robot, True):
+            # total_edges.append(LineSegment(p, to))
+            G.add_edge(p.id, to_id, weight=dis)
+
+    # total_edges += env.network_edges
+    try:
+        path = nx.astar_path(G, fr_id, to_id)
+    except nx.NetworkXNoPath as e:
+        return Move(closest_point).resolve(robot)
+
+    for i in range(len(path) - 1):
+        edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
         env.viewer.add_onetime(edge)
+
+    return Move(points[path[1]]).resolve(robot)
+    # for e in total_edges:
+    #     edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
+    #     env.viewer.add_onetime(edge)
+
+    # for p in points:
+    #     geom = rendering.Circle(p, 5)
+    #     env.viewer.add_onetime(geom)
