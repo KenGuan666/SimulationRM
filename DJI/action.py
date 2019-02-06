@@ -58,6 +58,7 @@ class Rotate(Action):
 
     def __init__(self, angle):
         self.angle = angle
+        self.dir = None
 
     def simple_resolve(self, robot):
         if float_equals(robot.angle, self.angle):
@@ -78,8 +79,8 @@ class Rotate(Action):
     def post_resolve(self, robot):
         if self.dir == "LEFT":
             return RotateGunRight(self.final_angle).resolve(robot)
-        return RotateGunLeft(self.final_angle).resolve(robot)
-
+        if self.dir == "RIGHT":
+            return RotateGunLeft(self.final_angle).resolve(robot)
 
 
 class RotateLeft(Action):

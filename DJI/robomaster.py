@@ -66,7 +66,7 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 0.02
 	full_time = 300
-	display_visibility_map = False
+	display_visibility_map = True
 
 	def __init__(self):
 
@@ -137,7 +137,7 @@ class RobomasterEnv(gym.Env):
 
 		# Init movement network
 		G = nx.Graph()
-		delta = 25
+		delta = 30
 		self.network_points = []
 		id = 0
 		for block in self.characters['obstacles'] + [self.enemy_team.loading_zone]:
