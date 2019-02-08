@@ -567,6 +567,10 @@ class DummyRobot(Robot):
 	def get_strategy(self):
 		return DoNothing()
 
+class DefensiveRobot(Robot):
+
+	def get_strategy(self):
+		return BreakLine()
 
 class CrazyRobot(Robot):
 
@@ -611,4 +615,4 @@ class TrainingRobot(Robot):
 
 
 
-strats = [DummyRobot, CrazyRobot, AttackRobot]
+strats = [DummyRobot, CrazyRobot, AttackRobot, DefensiveRobot]

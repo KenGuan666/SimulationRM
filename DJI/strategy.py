@@ -49,6 +49,17 @@ class DoNothing(Strategy):
     def name():
         return "DO NOTHING"
 
+class BreakLine(Strategy):
+
+    def decide(self, robot):
+        if robot.center.dis(self.target_robot.center) > robot.range or \
+           robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), [robot, self.target_robot]):
+            return None
+        else:
+            return RefillCommand()
+
+    def name():
+        return "BREAK LINE"
 
 class SpinAndFire(Strategy):
 
