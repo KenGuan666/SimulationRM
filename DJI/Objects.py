@@ -575,6 +575,9 @@ class CrazyRobot(Robot):
 	def get_strategy(self):
 		return SpinAndFire()
 
+class PatrolRobot(Robot):
+	def get_strategy(self):
+		return Patrol(0)
 
 class AttackRobot(Robot):
 
