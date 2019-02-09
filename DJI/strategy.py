@@ -30,12 +30,46 @@ class Strategy:
         pass
 
 
-class Patrol(Strategy):
+class Reload(Strategy):
+    def decide(self, robot):
+        loader = robot.team.loading_zone
 
-    key_points = [Point(0, 0)]
+        if loader.aligned(robot):
+            if loader.loading():
+                return None
+            if robot.bullet < robot.bullet_capacity - 100 and loader.fills > 0:
+                return RefillCommand()
+        else:
+            return Move(loader.loading_point)
+
+class DefensiveBuff(Strategy):
+    def decide(self, robot):
+        buffzone = robot.team.defense_buff_zone
+
+        buffzone.act()
+        if buffzone.color != robot.team.color:
+            return Move(loader.loading_point)
+
+
+class Patrol(Strategy):
+    curr_pt_ind = 0 # because apparently this class gets reinstantiated every time its called
+
+    def __init__(self, line_index):
+        self.key_points = [
+            (Point(600, 350), Point(250, 350)), # top
+            (Point(750, 350), Point(750, 100)), # right
+        ]
+        self.line = self.key_points[line_index]
 
     def decide(self, robot):
-        pass
+        if float_equals(0, robot.center.dis(self.line[Patrol.curr_pt_ind])):
+            Patrol.curr_pt_ind = 1 - Patrol.curr_pt_ind
+#        enemy = robot.get_enemy()
+#        if robot.center.dis(enemy.center) <= robot.range and \
+#           not robot.env.is_blocked(LineSegment(robot.center, enemy.center), [robot, enemy]) and \
+#           float_equals(robot.angle_to(enemy.center), robot.angle + robot.gun_angle):
+#            return Aim(enemy.center)
+        return Move(self.line[Patrol.curr_pt_ind])
 
     def name():
         return "PATROL"

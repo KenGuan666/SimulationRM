@@ -131,7 +131,7 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		my_robot = AttackRobot(self, BLUE, Point(780, 480), 180)
+		my_robot = PatrolRobot(self, BLUE, Point(780, 480), 180)
 		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(10, 10), 0)
 		my_robot.load(40)
 		enemy_robot.load(40)
@@ -383,7 +383,7 @@ class RobomasterEnv(gym.Env):
 		for b in self.characters['bullets']:
 			state += b.generate_state()
 		state += [0] * 4 * (60 - bullet_count)
-		print(state)
+		#print(state)
 		return state
 
 	def close(self):
