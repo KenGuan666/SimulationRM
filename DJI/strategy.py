@@ -51,12 +51,49 @@ class DoNothing(Strategy):
 
 class BreakLine(Strategy):
 
+    def __init__(self):
+        self.key_points = [
+            Point(380.0, 130),
+            Point(295.0, 130),
+            Point(420.0, 370),
+            Point(505.0, 370),
+            Point(320.0, 208),
+            Point(480.0, 208),
+            Point(480.0, 293),
+            Point(320.0, 293),
+            Point(550.0, 70),
+            Point(710.0, 70),
+            Point(710.0, 155),
+            Point(550.0, 155),
+            Point(90.0, 345),
+            Point(250.0, 345),
+            Point(250.0, 430),
+            Point(90.0, 430),
+            Point(110.0, 110),
+            Point(195.0, 110),
+            Point(195.0, 270),
+            Point(110.0, 270),
+            Point(605.0, 230),
+            Point(690.0, 230),
+            Point(690.0, 390),
+            Point(605.0, 390),
+            Point(480.0, 130),
+            Point(320.0, 130)
+        ]
+
     def decide(self, robot):
-        if robot.center.dis(self.target_robot.center) > robot.range or \
-           robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), [robot, self.target_robot]):
+        enemy = robot.get_enemy()
+        if robot.center.dis(enemy.center) > robot.range or \
+           robot.env.is_blocked(LineSegment(robot.center, enemy.center), [robot, enemy]):
+            print('blocked!')
             return None
         else:
-            return RefillCommand()
+            print('not blocked!')
+            points = sorted(self.key_points, key=lambda x: robot.center.dis(x))
+            for i in points:
+                if robot.env.is_blocked(LineSegment(enemy.center, i), [robot, enemy]):
+                    loader = robot.team.loading_zone
+                    return Move(i)
 
     def name():
         return "BREAK LINE"

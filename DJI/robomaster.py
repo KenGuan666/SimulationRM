@@ -66,7 +66,7 @@ class RobomasterEnv(gym.Env):
 	height = 500
 	tau = 0.02
 	full_time = 300
-	display_visibility_map = False
+	display_visibility_map = True
 	rendering = True
 
 	def init_from_state(self, state):
@@ -106,9 +106,9 @@ class RobomasterEnv(gym.Env):
 		if self.rendering:
 			health_bar_params = (20, 260)
 			self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-			    health_bar_params[0], health_bar_params[1]), self.viewer)
+				health_bar_params[0], health_bar_params[1]), self.viewer)
 			self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-			    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+				self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
 
 
 	def __init__(self):
@@ -141,7 +141,7 @@ class RobomasterEnv(gym.Env):
 
 		# Defining course obstacles
 		self.characters['obstacles'] = [Obstacle(p[0], p[1], p[2])
-		    for p in [(Point(325, 0), 25, 100), (Point(450, 400), 25, 100),
+			for p in [(Point(325, 0), 25, 100), (Point(450, 400), 25, 100),
 				(Point(350, 238), 100, 25), (Point(580, 100), 100, 25),
 				(Point(120, 375), 100, 25), (Point(140, 140), 25, 100),
 				(Point(635, 260), 25, 100)]]
@@ -157,7 +157,7 @@ class RobomasterEnv(gym.Env):
 		(Point(350, 400), BLUE), (Point(350, 0), RED)]]
 
 		self.characters['zones'] = self.starting_zones + self.defense_buff_zones + \
-		    self.loading_zones
+			self.loading_zones
 
 		# self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
 		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
@@ -168,9 +168,9 @@ class RobomasterEnv(gym.Env):
 
 			health_bar_params = (20, 260)
 			BLUE.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-			    health_bar_params[0], health_bar_params[1]), self.viewer)
+				health_bar_params[0], health_bar_params[1]), self.viewer)
 			RED.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-			    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+				self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
 
 			for char in self.inactables():
 				geoms = char.render()
@@ -206,20 +206,20 @@ class RobomasterEnv(gym.Env):
 		self.network = G
 
 		if self.display_visibility_map:
-		    for e in self.network_edges:
-		        edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
-		        self.viewer.add_geom(edge)
+			for e in self.network_edges:
+				edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
+				self.viewer.add_geom(edge)
 
-		    for p in self.network_points:
-		        geom = rendering.Circle(p, 5)
-		        self.viewer.add_geom(geom)
+			for p in self.network_points:
+				geom = rendering.Circle(p, 5)
+				self.viewer.add_geom(geom)
 
 	def state(self):
 		return []
 
 	def actables(self):
 		return self.loading_zones + self.defense_buff_zones + \
-		    self.characters['robots'] + self.characters['bullets']
+			self.characters['robots'] + self.characters['bullets']
 
 	def inactables(self):
 		return self.starting_zones + self.characters['obstacles']
@@ -232,15 +232,15 @@ class RobomasterEnv(gym.Env):
 
 	def impermissibles(self, robot):
 		return list(filter(lambda r: not r == robot, self.characters['robots'])) \
-		    + self.characters['obstacles'] \
-		    + list(filter(lambda z: not z.permissble(robot.team), self.loading_zones))
+			+ self.characters['obstacles'] \
+			+ list(filter(lambda z: not z.permissble(robot.team), self.loading_zones))
 
 	def direct_reachable_forward(self, fr, to, robot, ignore_robots=False):
 		if fr.float_equals(to):
 			return True
 		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angle_to(to))
 		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width / 2, \
-		    robot.height, fr.angle_to(to))
+			robot.height, fr.angle_to(to))
 		if ignore_robots:
 			return not self.is_obstructed_ignore_robots(helper_rec, robot)
 		return not self.is_obstructed(helper_rec, robot)
@@ -313,7 +313,7 @@ class RobomasterEnv(gym.Env):
 			for geom in geoms:
 				self.viewer.add_onetime(geom)
 		self.viewer.add_onetime_text("Time: {0} seconds".format(round(self.game_time, 1)), \
-		    10, 12, self.height - 12)
+			10, 12, self.height - 12)
 
 		return self.viewer.render(return_rgb_array = mode == 'rgb_array')
 
@@ -353,7 +353,7 @@ class RobomasterEnv(gym.Env):
 	[0]: game_time. Total number of steps elapsed. Equivalent to game_time/50 seconds
 	[1]: number of robots on each team
 	[2-41]: state of 4 robots. non-existant robots are 0 padded. 9 numbers each
-	        [2-3]: x, y coord of center of robot
+			[2-3]: x, y coord of center of robot
 			[4]: robot angle in degrees  [5]: robot gun angle relative to front in degrees
 			[6]: bullet count [7]: remaining number of rounds of shooting cooldown
 			[8]: remaining number of rounds of defense buff [9]: flag=1 if robot is shooting 0 otherwise
@@ -383,7 +383,7 @@ class RobomasterEnv(gym.Env):
 		for b in self.characters['bullets']:
 			state += b.generate_state()
 		state += [0] * 4 * (60 - bullet_count)
-		print(state)
+		# print(state)
 		return state
 
 	def close(self):
