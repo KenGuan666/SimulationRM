@@ -92,12 +92,12 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		my_robot = AttackRobot(self, BLUE, Point(780, 400), 180)
-		# my_robot2 = AttackRobot(self, BLUE, Point(20, 440), 0)
-		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(50, 10), 90)
-		# enemy_robot2 = AttackRobot(self, RED, Point(780, 60), 180)
+		my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
+		# my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
+		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(50, 450), 0)
+		# enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
 		# enemy_robot = JoystickRobot(self, RED, Point(10, 10), 0)
-		my_robot.load(40)
+		# my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
 		# self.characters['robots'] += [my_robot2, enemy_robot2] 
@@ -182,7 +182,11 @@ class RobomasterEnv(gym.Env):
 				self.viewer.add_geom(geom)
 
 	def init_pygame_rendering(self):
+		pygame.init()
+		pygame.font.init()
 		self.viewer = pygame.display.set_mode([self.width, self.height])
+
+		LoadingZone.font = pygame.font.SysFont('timesnewroman', 15)
 		
 		health_bar_params = (20, 260)
 		self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
@@ -315,6 +319,11 @@ class RobomasterEnv(gym.Env):
 			bar = r.health_bar
 			pygame.draw.rect(self.viewer, COLOR_BLACK, [bar.left, bar.bottom, bar.width, bar.height], 1)
 
+		for l in self.loading_zones:
+			if l.text:
+				self.viewer.blit(l.text, (l.center.x, l.center.y))
+
+		self.viewer.blit(pygame.transform.flip(self.viewer, False, True), (0, 0))
 		pygame.display.flip()
 
 	def is_obstructed(self, rec, robot):

@@ -249,6 +249,7 @@ class LoadingZone(Zone):
 		self.loaded = 0
 		self.to_load = 0
 		self.rendering_center = [int(x) for x in self.center.to_list()]
+			
 
 	fills = 2
 	tolerance_radius = 3
@@ -310,6 +311,11 @@ class LoadingZone(Zone):
 	def pygame_render(self, screen):
 		super().pygame_render(screen)
 		pygame.draw.circle(screen, self.color, self.rendering_center, 12)
+		if self.loading() > 0:
+			self.text = pygame.transform.flip(self.font.render("to_load: {0}, loaded: {1}".format(int(self.to_load), \
+				int(self.loaded)), False, COLOR_BLACK), False, True)
+		else:
+			self.text = None
 
 	def generate_state(self):
 		return [self.fills, self.to_load, self.loaded]

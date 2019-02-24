@@ -5,7 +5,6 @@ from action import *
 from pyglet.window import key
 import pyglet
 import pygame
-import keyboard
 
 """
 All strategies shall implement the abstract class Strategy

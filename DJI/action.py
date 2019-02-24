@@ -240,18 +240,21 @@ def astar_ignore_enemy(to, robot):
         if env.direct_reachable_forward(robot.center, p, robot):
             # total_edges.append(LineSegment(robot.center, p))
             G.add_edge(fr_id, p.id, weight=robot.center.dis(p))
-        dis = p.dis(to)
-        if dis < min_dis:
-            closest_point, min_dis = p, dis
-        if env.direct_reachable_forward(p, to, robot, True):
-            # total_edges.append(LineSegment(p, to))
-            G.add_edge(p.id, to_id, weight=dis)
+            dis = p.dis(to)
+            if dis < min_dis:
+                closest_point, min_dis = p, dis
+            if env.direct_reachable_forward(p, to, robot, True):
+                # total_edges.append(LineSegment(p, to))
+                G.add_edge(p.id, to_id, weight=dis)
 
     # total_edges += env.network_edges
     try:
         path = nx.astar_path(G, fr_id, to_id)
     except nx.NetworkXNoPath as e:
-        return Move(closest_point).resolve(robot)
+        # print(closest_point)
+        if closest_point:
+            return Move(closest_point).resolve(robot)
+        return None
 
     for i in range(len(path) - 1):
         edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)

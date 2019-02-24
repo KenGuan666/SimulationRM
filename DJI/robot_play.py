@@ -11,7 +11,6 @@ env = gym.make('Robomaster-v0').unwrapped
 
 total_rounds = int(env.full_time / env.tau)
 joystick_control = True
-# pygame.init()
 # clock = pygame.time.Clock()
 # pygame.joystick.init()
 
