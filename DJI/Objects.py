@@ -8,6 +8,7 @@ import heapq
 import cv2
 import rendering
 import keyboard
+import pygame
 
 from utils import *
 from strategy import *
@@ -23,6 +24,9 @@ class Character:
 		pass
 
 	def render(self):
+		pass
+
+	def pygame_render(self, screen):
 		pass
 
 	def reset(self):
@@ -138,6 +142,11 @@ class Rectangle(Character):
 		rec.set_color(color[0], color[1], color[2])
 		return [rec]
 
+	def pygame_render(self, screen, color=None):
+		if not color:
+			color = self.color
+		pygame.draw.polygon(screen, color, [p.to_list() for p in self.vertices])
+
 
 """
 Type of rectangle that never rotates.
@@ -175,6 +184,11 @@ class UprightRectangle(Rectangle):
 		return not (left_y > self.top and right_y > self.top) and \
 		       not (left_y < self.bottom and right_y < self.bottom)
 
+	def pygame_render(self, screen, color=None):
+		if not color:
+			color = self.color
+		pygame.draw.rect(screen, color, [self.left, self.bottom, self.width, self.height])
+
 """
 Impermissible and inpenetrable obstacles are described by class Obstacle
 """
@@ -202,6 +216,8 @@ class Zone(UprightRectangle):
 		super().__init__(bottom_left, 100, 100)
 		self.team = team
 		self.color = team.dark_color
+		self.render_helper = UprightRectangle(self.bottom_left.move(8, 8), \
+		    self.width - 16, self.height - 16)
 
 	def penetrable(self):
 		return True
@@ -210,8 +226,11 @@ class Zone(UprightRectangle):
 		return True
 
 	def render(self):
-		return super().render() + Rectangle(self.bottom_left.move(8, 8), \
-		    self.width - 16, self.height - 16).render(COLOR_WHITE)
+		return super().render() + self.render_helper.render(COLOR_WHITE)
+
+	def pygame_render(self, screen):
+		super().pygame_render(screen)
+		self.render_helper.pygame_render(screen, PYGAME_COLOR_WHITE)
 
 	def generate_state(self):
 		return []
@@ -229,6 +248,7 @@ class LoadingZone(Zone):
 		self.env = env
 		self.loaded = 0
 		self.to_load = 0
+		self.rendering_center = [int(x) for x in self.center.to_list()]
 
 	fills = 2
 	tolerance_radius = 3
@@ -286,6 +306,10 @@ class LoadingZone(Zone):
 			self.env.viewer.add_onetime_text("to_load: {0}, loaded: {1}".format(int(self.to_load), int(self.loaded)), \
 			    10, self.center.x, self.center.y)
 		return super().render() + [circle]
+	
+	def pygame_render(self, screen):
+		super().pygame_render(screen)
+		pygame.draw.circle(screen, self.color, self.rendering_center, 12)
 
 	def generate_state(self):
 		return [self.fills, self.to_load, self.loaded]
@@ -333,6 +357,10 @@ class DefenseBuffZone(Zone):
 
 	def render(self):
 		return super().render() + self.d_helper.render(self.color)
+	
+	def pygame_render(self, screen):
+		super().pygame_render(screen)
+		self.d_helper.pygame_render(screen, self.color)
 
 	def generate_state(self):
 		active_flag = 0
@@ -342,14 +370,13 @@ class DefenseBuffZone(Zone):
 
 
 class StartingZone(Zone):
-
 	pass
 
 
 """
 Describes a bullet. Currently modeled as having constant speed and no volume
 """
-class Bullet:
+class Bullet(Character):
 
 	damage = 50
 
@@ -399,6 +426,9 @@ class Bullet:
 
 	def render(self):
 		return [rendering.Circle(self.point, 2)]
+
+	def pygame_render(self, screen):
+		pygame.draw.circle(screen, COLOR_BLACK, [int(x) for x in self.point.to_list()], 2)
 
 	def generate_state(self):
 		return [self.point.x, self.point.y, self.dir, self.master.id]
@@ -483,6 +513,21 @@ class Robot(Rectangle):
 			return super().render() + self.health_display.render() + \
 			    self.get_gun().render(self.color) + [armor.render()[0] for armor in self.get_armor()]
 		return super().render()
+
+	def pygame_render(self, screen):
+		if self.alive():
+			self.health_display = UprightRectangle(self.health_bar.bottom_left.move(0, 1), \
+			    self.health_bar.width - 1, self.health / Robot.health * (self.health_bar.height - 1))
+			if self.has_defense_buff():
+				self.health_display.color = PYGAME_COLOR_YELLOW
+			else:
+				self.health_display.color = self.color
+			super().pygame_render(screen)
+			self.health_display.pygame_render(screen)
+			self.get_gun().pygame_render(screen, self.color)
+			for armor in self.get_armor():
+				armor.pygame_render(screen)
+		super().pygame_render(screen)
 
 	def alive(self):
 		return self.health > 0
@@ -596,15 +641,28 @@ class ManualControlRobot(Robot):
 	def __init__(self, controls, env, team, bottom_left, angle=0):
 		super().__init__(env, team, bottom_left, angle)
 		self.controls = controls
+		self.strat = Manual(self.controls)
 
 	def get_strategy(self):
-		return Manual(self.controls)
+		return self.strat
 
 
 class TrainingRobot(Robot):
 
 	def set_strategy(self, strat):
 		self.strat = strat
+
+	def get_strategy(self):
+		return self.strat
+
+
+class JoystickRobot(Robot):
+
+	type = 'JoystickRobot' 
+
+	def __init__(self, env, team, bottom_left, angle):
+		super().__init__(env, team, bottom_left, angle)
+		self.strat = Joystick()
 
 	def get_strategy(self):
 		return self.strat

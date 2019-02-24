@@ -12,6 +12,7 @@ from gym.utils import seeding
 from gym.envs.DJI.Objects import *
 import numpy as np
 import networkx as nx
+import pygame
 import cv2
 
 """
@@ -67,48 +68,8 @@ class RobomasterEnv(gym.Env):
 	tau = 0.02
 	full_time = 300
 	display_visibility_map = False
-	rendering = True
-
-	def init_from_state(self, state):
-		self.__init__()
-
-		self.my_team.robots, self.enemy_team.robots = [], []
-
-		self.game_time = state[0] * self.tau
-
-		def slice_helper(list, seg_len):
-			return [list[i:i+seg_len] for i in range(0, len(list), seg_len)]
-
-		my_robots = [Robot.init_from_state(state, self, self.my_team) for state in slice_helper(state[2:22], 10) if any(state)]
-		enemy_robots = [Robot.init_from_state(state, self, self.enemy_team) for state in slice_helper(state[22:42], 10) if any(state)]
-		self.characters['robots'] = my_robots + enemy_robots
-		for i in range(len(self.characters['robots'])):
-			self.characters['robots'][i].id = i
-
-		if state[42]:
-			self.my_team.defense_buff_zone.active = True
-		self.my_team.defense_buff_zone.touch_record = state[43:47]
-		self.my_team.loading_zone.refills = state[52]
-		self.my_team.loading_zone.to_load = state[53]
-		self.my_team.loading_zone.loaded = state[54]
-		if state[47]:
-			self.enemy_team.defense_buff_zone.active = True
-		self.enemy_team.defense_buff_zone.touch_record = state[48:52]
-		self.my_team.loading_zone.refills = state[55]
-		self.my_team.loading_zone.to_load = state[56]
-		self.my_team.loading_zone.loaded = state[57]
-
-		for state in slice_helper(state[58:], 4):
-			if not any(state):
-				break
-			self.characters['bullets'].append(Bullet.init_from_state(state, self))
-
-		if self.rendering:
-			health_bar_params = (20, 260)
-			self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-			    health_bar_params[0], health_bar_params[1]), self.viewer)
-			self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-			    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+	rendering = False
+	pygame_rendering = True
 
 
 	def __init__(self):
@@ -125,17 +86,21 @@ class RobomasterEnv(gym.Env):
 		}
 
 		# Initialize teams
-		BLUE = Team("BLUE")
-		RED = Team("RED")
+		BLUE = Team("BLUE", self.pygame_rendering)
+		RED = Team("RED", self.pygame_rendering)
 		BLUE.enemy, RED.enemy = RED, BLUE
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		my_robot = AttackRobot(self, BLUE, Point(780, 480), 180)
-		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(10, 10), 0)
+		my_robot = AttackRobot(self, BLUE, Point(780, 400), 180)
+		# my_robot2 = AttackRobot(self, BLUE, Point(20, 440), 0)
+		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(50, 10), 90)
+		# enemy_robot2 = AttackRobot(self, RED, Point(780, 60), 180)
+		# enemy_robot = JoystickRobot(self, RED, Point(10, 10), 0)
 		my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
+		# self.characters['robots'] += [my_robot2, enemy_robot2] 
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
@@ -159,24 +124,10 @@ class RobomasterEnv(gym.Env):
 		self.characters['zones'] = self.starting_zones + self.defense_buff_zones + \
 		    self.loading_zones
 
-		# self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
-		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
-
 		if self.rendering:
-			self.viewer = rendering.Viewer(self.width, self.height)
-			self.viewer.add_geom(boundary)
-
-			health_bar_params = (20, 260)
-			BLUE.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-			    health_bar_params[0], health_bar_params[1]), self.viewer)
-			RED.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-			    self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
-
-			for char in self.inactables():
-				geoms = char.render()
-				for geom in geoms:
-					self.viewer.add_geom(geom)
-
+			self.init_rendering()
+		elif self.pygame_rendering:
+			self.init_pygame_rendering()
 
 		# Init movement network
 		G = nx.Graph()
@@ -213,6 +164,37 @@ class RobomasterEnv(gym.Env):
 		    for p in self.network_points:
 		        geom = rendering.Circle(p, 5)
 		        self.viewer.add_geom(geom)
+
+	def init_rendering(self):
+		self.viewer = rendering.Viewer(self.width, self.height)
+		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
+		self.viewer.add_geom(boundary)
+
+		health_bar_params = (20, 260)
+		self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
+			health_bar_params[0], health_bar_params[1]), self.viewer)
+		self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
+			self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+
+		for char in self.inactables():
+			geoms = char.render()
+			for geom in geoms:
+				self.viewer.add_geom(geom)
+
+	def init_pygame_rendering(self):
+		self.viewer = pygame.display.set_mode([self.width, self.height])
+		
+		health_bar_params = (20, 260)
+		self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
+			health_bar_params[0], health_bar_params[1]))
+		self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
+			self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]))
+
+	def stop_rendering(self):
+		if self.rendering:
+			self.viewer.close()
+		elif self.pygame_rendering:
+			pygame.quit()
 
 	def state(self):
 		return []
@@ -289,6 +271,8 @@ class RobomasterEnv(gym.Env):
 		self.state = self.generate_state()
 		if self.rendering:
 			self.render()
+		elif self.pygame_rendering:
+			self.pygame_render()
 
 		# NOT YET IMPLEMENTED
 		reward = 0.0
@@ -316,6 +300,22 @@ class RobomasterEnv(gym.Env):
 		    10, 12, self.height - 12)
 
 		return self.viewer.render(return_rgb_array = mode == 'rgb_array')
+
+	def pygame_render(self):
+		self.viewer.fill(PYGAME_COLOR_WHITE)
+
+		for event in pygame.event.get(): 
+			if event.type == pygame.QUIT:
+				return self.stop_rendering()
+
+		for char in self.inactables() + self.actables():
+			char.pygame_render(self.viewer)
+
+		for r in self.characters['robots']:
+			bar = r.health_bar
+			pygame.draw.rect(self.viewer, COLOR_BLACK, [bar.left, bar.bottom, bar.width, bar.height], 1)
+
+		pygame.display.flip()
 
 	def is_obstructed(self, rec, robot):
 		for ob in self.impermissibles(robot):
@@ -383,10 +383,46 @@ class RobomasterEnv(gym.Env):
 		for b in self.characters['bullets']:
 			state += b.generate_state()
 		state += [0] * 4 * (60 - bullet_count)
-		print(state)
+		# print(state)
 		return state
 
 	def close(self):
-		if self.viewer:
-			self.viewer.close()
-			self.viewer = None
+		self.stop_rendering()
+
+	def init_from_state(self, state):
+		self.__init__()
+
+		self.my_team.robots, self.enemy_team.robots = [], []
+
+		self.game_time = state[0] * self.tau
+
+		def slice_helper(list, seg_len):
+			return [list[i:i+seg_len] for i in range(0, len(list), seg_len)]
+
+		my_robots = [Robot.init_from_state(state, self, self.my_team) for state in slice_helper(state[2:22], 10) if any(state)]
+		enemy_robots = [Robot.init_from_state(state, self, self.enemy_team) for state in slice_helper(state[22:42], 10) if any(state)]
+		self.characters['robots'] = my_robots + enemy_robots
+		for i in range(len(self.characters['robots'])):
+			self.characters['robots'][i].id = i
+
+		if state[42]:
+			self.my_team.defense_buff_zone.active = True
+		self.my_team.defense_buff_zone.touch_record = state[43:47]
+		self.my_team.loading_zone.refills = state[52]
+		self.my_team.loading_zone.to_load = state[53]
+		self.my_team.loading_zone.loaded = state[54]
+		if state[47]:
+			self.enemy_team.defense_buff_zone.active = True
+		self.enemy_team.defense_buff_zone.touch_record = state[48:52]
+		self.my_team.loading_zone.refills = state[55]
+		self.my_team.loading_zone.to_load = state[56]
+		self.my_team.loading_zone.loaded = state[57]
+
+		for state in slice_helper(state[58:], 4):
+			if not any(state):
+				break
+			self.characters['bullets'].append(Bullet.init_from_state(state, self))
+
+		if self.rendering:
+			self.stop_rendering()
+			self.init_rendering()

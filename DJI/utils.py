@@ -102,17 +102,25 @@ class LineSegment:
 
 class Team:
 
-	def __init__(self, name):
+	def __init__(self, name, pygame_rendering):
 		self.name = name
 		self.robots = []
 		self.enemy = None
 
 		if self.name == "BLUE":
-			self.dark_color = COLOR_DARKBLUE
-			self.color = COLOR_BLUE
+			if pygame_rendering:
+				self.dark_color = PYGAME_COLOR_DARKBLUE
+				self.color = PYGAME_COLOR_BLUE
+			else:
+				self.dark_color = COLOR_DARKBLUE
+				self.color = COLOR_BLUE
 		else:
-			self.dark_color = COLOR_DARKRED
-			self.color = COLOR_RED
+			if pygame_rendering:
+				self.dark_color = PYGAME_COLOR_DARKRED
+				self.color = PYGAME_COLOR_RED
+			else:
+				self.dark_color = COLOR_DARKRED
+				self.color = COLOR_RED
 
 	def add_robot(self, robot):
 		self.robots.append(robot)
@@ -124,19 +132,21 @@ class Team:
 	def total_health(self):
 		return sum([r.health for r in self.robots])
 
-	def set_health_bar(self, rec, viewer):
+	def set_health_bar(self, rec, viewer=None):
 		self.bar = rec
 		if len(self.robots) == 1:
 			self.robots[0].health_bar = rec
-			viewer.add_geom(rendering.PolyLine([p.to_list() for p in rec.vertices], True))
+			if viewer:
+				viewer.add_geom(rendering.PolyLine([p.to_list() for p in rec.vertices], True))
 		else:
 			left_middle = rec.vertices[0].midpoint(rec.vertices[3])
 			self.robots[0].health_bar = type(rec)(rec.vertices[0], \
 			    rec.width, rec.height/2)
 			self.robots[1].health_bar = type(rec)(left_middle, \
 			    rec.width, rec.height/2)
-			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[0].health_bar.vertices], True))
-			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[1].health_bar.vertices], True))
+			if viewer:
+				viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[0].health_bar.vertices], True))
+				viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[1].health_bar.vertices], True))
 
 	def generate_state(self):
 		state = []
@@ -172,3 +182,10 @@ COLOR_GREEN = (0, 1, 0)
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (1, 1, 1)
 COLOR_YELLOW = (1, 1, 0)
+
+PYGAME_COLOR_WHITE = (255, 255, 255)
+PYGAME_COLOR_RED = (255, 0, 0)
+PYGAME_COLOR_BLUE = (0, 0, 255)
+PYGAME_COLOR_DARKRED = (127, 0, 0)
+PYGAME_COLOR_DARKBLUE = (0, 0, 127)
+PYGAME_COLOR_YELLOW = (255, 255, 0)

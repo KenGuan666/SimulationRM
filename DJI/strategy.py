@@ -3,6 +3,8 @@ from Objects import *
 from utils import *
 from action import *
 from pyglet.window import key
+import pyglet
+import pygame
 import keyboard
 
 """
@@ -135,3 +137,11 @@ class Manual(Strategy):
         if keyboard.is_pressed(self.right):
             actions.append(MoveRight(robot.angle, robot.max_speed))
         return actions
+
+
+class Joystick(Strategy):
+        
+    def decide(self, robot):
+        # params = robot.env.coords
+        # [0] -> x [1] -> y [2] -> z
+        pass
