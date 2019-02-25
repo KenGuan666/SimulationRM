@@ -640,14 +640,19 @@ class AttackWithRadiusRobot(Robot):
 	pass
 
 
-class ManualControlRobot(Robot):
+class KeyboardRobot(Robot):
 
 	strategy_id = 2
 
 	def __init__(self, controls, env, team, bottom_left, angle=0):
 		super().__init__(env, team, bottom_left, angle)
 		self.controls = controls
-		self.strat = Manual(self.controls)
+		if env.rendering:
+			self.strat = KeyboardPyglet(self.controls)
+		elif env.pygame_rendering:
+			self.strat = KeyboardPygame(self.controls)
+		env.keyboard_robot = self
+		env.listening = list(controls)
 
 	def get_strategy(self):
 		return self.strat
@@ -668,7 +673,12 @@ class JoystickRobot(Robot):
 
 	def __init__(self, env, team, bottom_left, angle):
 		super().__init__(env, team, bottom_left, angle)
-		self.strat = Joystick()
+		env.joystick_robot = True
+		pygame.joystick.init()
+		if pygame.joystick.get_count():
+			self.strat = Joystick()	
+		else:
+			self.strat = DoNothing() 
 
 	def get_strategy(self):
 		return self.strat

@@ -3,6 +3,7 @@ from Objects import *
 from utils import *
 from action import *
 from pyglet.window import key
+import keyboard
 import pyglet
 import pygame
 
@@ -99,7 +100,7 @@ class AttackWithR(Strategy):
     pass
 
 
-class Manual(Strategy):
+class KeyboardPyglet(Strategy):
 
     def __init__(self, controls):
         self.controls = controls
@@ -138,9 +139,60 @@ class Manual(Strategy):
         return actions
 
 
+class KeyboardPygame(Strategy):
+    
+    def __init__(self, controls):
+        self.controls = controls
+        [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
+            self.fire, self.refill] = controls
+        self.shooting = False
+
+    def decide(self, robot):
+        pass
+
+
 class Joystick(Strategy):
+
+    refilled = False
         
     def decide(self, robot):
-        # params = robot.env.coords
-        # [0] -> x [1] -> y [2] -> z
-        pass
+        j = pygame.joystick.Joystick(0)
+        j.init()
+        coords = [j.get_axis(0), j.get_axis(1), j.get_axis(3)]
+        hat = j.get_hat(0)
+        
+        if not any(hat):
+            self.refilled = False
+
+        for i in range(len(coords)):
+            if float_equals(coords[i], 0, 0.05):
+                coords[i] = 0     
+        if not any(coords) and not any(hat):
+            return None
+        
+        [right, down, clockwise] = coords
+        translation_power, rotation_power = max(abs(right), abs(down)), abs(clockwise)
+
+        if translation_power:
+            translation_weight = translation_power / (translation_power + rotation_power)
+            rotation_weight = 1 - translation_weight
+            helper_weight = (right ** 2 + down ** 2) ** 0.5
+            right_weight, down_weight = right / helper_weight, down / helper_weight
+        else:
+            rotation_weight = 1
+
+        actions = []
+        if right:
+            actions.append(MoveRight(robot.angle, robot.max_speed * translation_weight * translation_power * right_weight))
+        if down:
+            actions.append(MoveBackward(robot.angle, robot.max_speed * translation_weight * translation_power * down_weight))
+        if clockwise:
+            actions.append(RotateRight(robot.max_rotation_speed * rotation_weight * clockwise))
+        if any(hat) and not self.refilled:
+            self.refilled = True
+            actions.append(RefillCommand())
+
+        # translation_angle = (Point(0, 0).angle_to(Point(right, -down)) - 90) % 360
+        # print(translation_angle)
+        # action = MoveAtAngle(robot.angle, robot.max_speed * translation_weight * translation_power, translation_angle)
+        return actions

@@ -30,7 +30,7 @@ class Action:
         pass
 
 
-class Move(Action):
+class Translation(Action):
 
     steps = 6
 
@@ -56,17 +56,23 @@ class Step(Action):
         return Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
 
 
-class MoveForward(Move):
+class MoveForward(Translation):
     angle = 0
 
-class MoveBackward(Move):
+class MoveBackward(Translation):
     angle = 180
 
-class MoveLeft(Move):
+class MoveLeft(Translation):
     angle = 90
 
-class MoveRight(Move):
+class MoveRight(Translation):
     angle = 270
+
+class MoveAtAngle(Translation):
+
+    def __init__(self, robot_angle, dis, angle):
+        self.angle = angle
+        super().__init__(robot_angle, dis)
 
 
 class Rotate(Action):

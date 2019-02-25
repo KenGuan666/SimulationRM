@@ -70,7 +70,8 @@ class RobomasterEnv(gym.Env):
 	display_visibility_map = False
 	rendering = False
 	pygame_rendering = True
-
+	keyboard_robot = False
+	joystick_robot = False
 
 	def __init__(self):
 
@@ -92,11 +93,12 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
+		my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
+		# my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
 		# my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
-		enemy_robot = ManualControlRobot("ASDWOPRB", self, RED, Point(50, 450), 0)
+		# enemy_robot = KeyboardRobot("ASDWOPRB", self, RED, Point(50, 450), 0)
 		# enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
-		# enemy_robot = JoystickRobot(self, RED, Point(10, 10), 0)
+		enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
 		# my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
@@ -311,6 +313,15 @@ class RobomasterEnv(gym.Env):
 		for event in pygame.event.get(): 
 			if event.type == pygame.QUIT:
 				return self.stop_rendering()
+			if self.keyboard_robot: # NOT FULLY IMPLEMENTED
+				if event.type == pygame.KEYDOWN:
+					print(pygame.key.name(event.key).upper())
+				if event.type == pygame.KEYUP:
+					print(pygame.key.name(event.key).upper())
+					# self.keyboard_robot.handle_key(pygame.key.name(event.key).upper())
+		
+		if self.joystick_robot: # PENDING
+			pass
 
 		for char in self.inactables() + self.actables():
 			char.pygame_render(self.viewer)
