@@ -119,8 +119,8 @@ class Rectangle(Character):
 	IT DOESN'T CONSIDER SOME CASES which I don't think are necessary for our app
 	"""
 	def intersects(self, other):
-		if self.contains_any(other.vertices) or other.contains_any(self.vertices):
-			return True
+		# if self.contains_any(other.vertices) or other.contains_any(self.vertices):
+		# 	return True
 		for side in other.sides:
 			if self.blocks(side):
 				return True
@@ -178,7 +178,11 @@ class UprightRectangle(Rectangle):
 		   (point_from.y < self.bottom and point_to.y < self.bottom) or \
 		   (point_from.y > self.top and point_to.y > self.top):
 		   return False
-
+		if point_from.x == point_to.x and \
+			((point_from.y > self.top and point_to.y < self.top) or \
+			(point_from.y < self.top and point_to.y > self.top)):
+			return True
+		
 		left_y, right_y = seg.y_at(self.left), seg.y_at(self.right)
 
 		return not (left_y > self.top and right_y > self.top) and \
@@ -312,7 +316,7 @@ class LoadingZone(Zone):
 		super().pygame_render(screen)
 		pygame.draw.circle(screen, self.color, self.rendering_center, 12)
 		if self.loading() > 0:
-			self.text = pygame.transform.flip(self.font.render("to_load: {0}, loaded: {1}".format(int(self.to_load), \
+			self.text = pygame.transform.flip(self.env.font.render("to_load: {0}, loaded: {1}".format(int(self.to_load), \
 				int(self.loaded)), False, COLOR_BLACK), False, True)
 		else:
 			self.text = None
@@ -454,7 +458,6 @@ class Armor(Rectangle):
 
 """
 The robot object -
-Currently modeled as a Rectangle object by assumption that gun has negligible chance of blocking a bullet
 
 To modify strategy, extend the class and override the `get_strategy` method
 """
@@ -647,14 +650,25 @@ class KeyboardRobot(Robot):
 	def __init__(self, controls, env, team, bottom_left, angle=0):
 		super().__init__(env, team, bottom_left, angle)
 		self.controls = controls
+		self.pygame_rendering = env.pygame_rendering
 		if env.rendering:
 			self.strat = KeyboardPyglet(self.controls)
 		elif env.pygame_rendering:
 			self.strat = KeyboardPygame(self.controls)
-		env.keyboard_robot = self
-		env.listening = list(controls)
+			env.keyboard_robot = self
+			env.listening = list(controls)
+			self.actions = []
+
+	def handle_key(self, key):
+		if key in self.controls:
+			if key in self.actions:
+				self.actions.remove(key)
+			else:
+				self.actions.append(key)
 
 	def get_strategy(self):
+		if self.pygame_rendering:
+			self.strat.set_instructions(self.actions)
 		return self.strat
 
 

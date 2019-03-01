@@ -2,6 +2,7 @@
 from Objects import *
 from utils import *
 import rendering
+import pygame
 import numpy
 import networkx as nx
 
@@ -32,7 +33,7 @@ class Action:
 
 class Translation(Action):
 
-    steps = 6
+    steps = 2
 
     def __init__(self, robot_angle, dis):
         self.angle += robot_angle
@@ -72,7 +73,7 @@ class MoveAtAngle(Translation):
 
     def __init__(self, robot_angle, dis, angle):
         self.angle = angle
-        super().__init__(robot_angle, dis)
+        super().__init__(0, dis)
 
 
 class Rotate(Action):
@@ -220,11 +221,14 @@ class Move(Action):
     def resolve(self, robot):
         if robot.center.float_equals(self.target_point):
             return
-        if robot.env.direct_reachable_forward(robot.center, self.target_point, robot, True):
-            if float_equals(robot.angle_to(self.target_point), robot.angle):
-                return MoveForward(robot.angle, min(robot.center.dis(self.target_point), \
-                   robot.max_speed)).resolve(robot)
-            return Aim(self.target_point).resolve(robot)
+        # if robot.env.direct_reachable_forward(robot.center, self.target_point, robot, True):
+        #     if float_equals(robot.angle_to(self.target_point), robot.angle):
+        #         return MoveForward(robot.angle, min(robot.center.dis(self.target_point), \
+        #            robot.max_speed)).resolve(robot)
+        #     return Aim(self.target_point).resolve(robot)
+        if robot.env.direct_reachable_curr_angle(robot.center, self.target_point, robot):
+            return MoveAtAngle(0, min(robot.center.dis(self.target_point), \
+                   robot.max_speed), robot.angle_to(self.target_point)).resolve(robot)
 
         # WAITING ON BETTER PATH ALGORITHM
         return astar_ignore_enemy(self.target_point, robot)
@@ -234,43 +238,61 @@ class Move(Action):
 
 def astar_ignore_enemy(to, robot):
     env = robot.env
-    G = env.network.copy()
+    G = env.network
     fr_id = len(env.network_points)
     to_id = fr_id + 1
     G.add_nodes_from([fr_id, fr_id + 1])
 
     points = env.network_points + [robot.center, to]
     closest_point, min_dis = None, 9999
+    removed_point, restore_edges = None, None
+
+    def restore_graph():
+        env.network.remove_node(fr_id)
+        env.network.remove_node(to_id)
+        if removed_point:
+            env.network.add_node(removed_point)
+            for p_id in restore_edges:
+                env.network.add_edge(points[p_id].id, removed_point.id, weight=points[p_id].dis(removed_point))
+
     # total_edges = []
     for p in env.network_points:
-        if env.direct_reachable_forward(robot.center, p, robot):
+        if p.float_equals(robot.center):
+            removed_point = p
+            restore_edges = list(G.adj[p.id])
+            G.remove_node(p.id)
+            continue
+        if env.direct_reachable_curr_angle(robot.center, p, robot):
             # total_edges.append(LineSegment(robot.center, p))
             G.add_edge(fr_id, p.id, weight=robot.center.dis(p))
-            dis = p.dis(to)
-            if dis < min_dis:
-                closest_point, min_dis = p, dis
-            if env.direct_reachable_forward(p, to, robot, True):
-                # total_edges.append(LineSegment(p, to))
-                G.add_edge(p.id, to_id, weight=dis)
+        dis = p.dis(to)
+        if dis and dis < min_dis:
+            closest_point, min_dis = p, dis
+        if env.direct_reachable_forward(p, to, robot, ignore_robots=True):
+            # total_edges.append(LineSegment(p, to))
+            G.add_edge(p.id, to_id, weight=dis)
 
     # total_edges += env.network_edges
+   
     try:
         path = nx.astar_path(G, fr_id, to_id)
     except nx.NetworkXNoPath as e:
-        # print(closest_point)
+        restore_graph()
         if closest_point:
             return Move(closest_point).resolve(robot)
         return None
 
-    for i in range(len(path) - 1):
-        edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
-        if env.rendering:
+    if env.rendering:
+        for i in range(len(path) - 1):
+            edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
             env.viewer.add_onetime(edge)
+        edge = rendering.PolyLine([points[path[len(path) - 1]].to_list(), to.to_list()], False)
+        env.viewer.add_onetime(edge)
 
+    # if points[path[1]].float_equals(robot.center):
+    #     return Move(points[path[2]]).resolve(robot)
+    restore_graph()
     return Move(points[path[1]]).resolve(robot)
-    # for e in total_edges:
-    #     edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
-    #     env.viewer.add_onetime(edge)
 
     # for p in points:
     #     geom = rendering.Circle(p, 5)

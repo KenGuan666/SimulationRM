@@ -24,8 +24,8 @@ class Strategy:
             default += [Fire()]
         if action:
             if type(action) == list:
-                return action + default
-            return [action] + default
+                return default + action
+            return default + [action]
         return default
 
     def name():
@@ -73,7 +73,7 @@ class Chase(Strategy):
 
     def decide(self, robot):
         if robot.center.dis(self.target_robot.center) > robot.range or \
-           robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), [robot, self.target_robot]):
+           robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), ignore=[robot, self.target_robot]):
             return [Move(self.target_robot.center)]
         if float_equals(robot.angle_to(self.target_robot.center), robot.angle + robot.gun_angle):
             return None
@@ -105,7 +105,7 @@ class KeyboardPyglet(Strategy):
     def __init__(self, controls):
         self.controls = controls
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
-            self.fire, self.refill] = controls
+            self.refill] = controls
         self.shooting = False
 
     def decide(self, robot):
@@ -116,11 +116,6 @@ class KeyboardPyglet(Strategy):
 
         @window.event
         def on_key_press(symbol, modifier):
-            if symbol == key.B:
-                if robot.shooting:
-                    SwitchShootingOff().resolve(robot)
-                else:
-                    SwitchShootingOn().resolve(robot)
             if symbol == key.R:
                 RefillCommand().resolve(robot)
 
@@ -142,14 +137,37 @@ class KeyboardPyglet(Strategy):
 class KeyboardPygame(Strategy):
     
     def __init__(self, controls):
-        self.controls = controls
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
-            self.fire, self.refill] = controls
-        self.shooting = False
+            self.refill] = controls
+        self.actions = []
+        self.refilling = False
+
+    def set_instructions(self, actions):
+        self.actions = actions
+        if self.refilling and self.refill not in actions:
+            self.refilling = False
 
     def decide(self, robot):
-        pass
-
+        if not self.actions:
+            return None
+        actions = []
+        if self.turnleft in self.actions:
+            actions.append(RotateLeft(robot.max_rotation_speed))
+        if self.turnright in self.actions:
+            actions.append(RotateRight(robot.max_rotation_speed))
+        if self.up in self.actions:
+            actions.append(MoveForward(robot.angle, robot.max_speed))
+        if self.down in self.actions:
+            actions.append(MoveBackward(robot.angle, robot.max_speed))
+        if self.left in self.actions:
+            actions.append(MoveLeft(robot.angle, robot.max_speed))
+        if self.right in self.actions:
+            actions.append(MoveRight(robot.angle, robot.max_speed))
+        if self.refill in self.actions:
+            if not self.refilling:
+                self.refilling = True
+                actions.append(RefillCommand())
+        return actions
 
 class Joystick(Strategy):
 

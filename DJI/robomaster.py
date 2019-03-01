@@ -21,55 +21,13 @@ Currently doesn't fit into the OpenAI gym model
 For future modification, consider definition of action set
 """
 class RobomasterEnv(gym.Env):
-	# """
-	# Description:
-	# 	A robot placed in a battlefield to face off against an enemy robot. Robots fire at each other to deal damage.
-	# 	Score is calculated at the end of a game to determine the winner.
-	#
-	# Source:
-	# 	This environment is a simplified version of the DJI Robomaster AI Challenge field.
-	#
-	# Observation:
-	# 	Type: Box(4)
-	# 	Num 	Observation 			Min 		Max
-	# 	0		Robot X Position		0.0			800.0
-	# 	1		Robot Y Position		0.0			500.0
-	# 	2		Enemy X Position		0.0			800.0
-	# 	3		Enemy Y Position		0.0			500.0
-	#
-	# Actions:
-	# 	Type: Box(2)
-	# 	Num 	Action 			Min			Max
-	# 	0		X Position		0			800
-	# 	1		Y Position		0			500
-	#
-	# Reward:
-	# 	Reward is 1 for every shot taken at the enemy.
-	# 	Reward is -1 for every shot taken from the enemy.
-	#
-	# Starting State:
-	# 	Initial Robot X and Robot Y are both 0.0.
-	# 	Initial Enemy X and Enemy Y are 800.0 and 500.0 respectively.
-	#
-	# Episode Termination:
-	# 	Robot health is 0.
-	# 	Enemy health is 0.
-	# 	Episode length is greater than 300.
-	# """
-	#
-	# metadata = {
-	# 	'render.modes': ['human', 'rgb_array'],
-	# 	'video.frames_per_second': 50
-	# }
-
 	# Defining course dimensions
 	width = 800
 	height = 500
 	tau = 0.02
 	full_time = 300
 	display_visibility_map = False
-	rendering = False
-	pygame_rendering = True
+	rendering, pygame_rendering = True, False
 	keyboard_robot = False
 	joystick_robot = False
 
@@ -93,16 +51,16 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
+		my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
 		# my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
-		# my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
-		# enemy_robot = KeyboardRobot("ASDWOPRB", self, RED, Point(50, 450), 0)
-		# enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
-		enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
+		my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
+		enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0)
+		enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
+		# enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
 		# my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
-		# self.characters['robots'] += [my_robot2, enemy_robot2] 
+		self.characters['robots'] += [my_robot2, enemy_robot2] 
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
@@ -133,7 +91,7 @@ class RobomasterEnv(gym.Env):
 
 		# Init movement network
 		G = nx.Graph()
-		delta = 30
+		delta = 40
 		self.network_points = []
 		id = 0
 		for block in self.characters['obstacles'] + [self.enemy_team.loading_zone]:
@@ -153,7 +111,7 @@ class RobomasterEnv(gym.Env):
 			for j in range(i + 1, len(self.network_points)):
 				p_i, p_j = self.network_points[i], self.network_points[j]
 				if self.direct_reachable_forward(p_i, p_j, my_robot, True):
-					# self.network_edges.append(LineSegment(p_i, p_j))
+					self.network_edges.append(LineSegment(p_i, p_j))
 					G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
 
 		self.network = G
@@ -188,7 +146,7 @@ class RobomasterEnv(gym.Env):
 		pygame.font.init()
 		self.viewer = pygame.display.set_mode([self.width, self.height])
 
-		LoadingZone.font = pygame.font.SysFont('timesnewroman', 15)
+		self.font = pygame.font.SysFont('timesnewroman', 15)
 		
 		health_bar_params = (20, 260)
 		self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
@@ -229,11 +187,22 @@ class RobomasterEnv(gym.Env):
 		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angle_to(to))
 		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width / 2, \
 		    robot.height, fr.angle_to(to))
-		if ignore_robots:
-			return not self.is_obstructed_ignore_robots(helper_rec, robot)
-		return not self.is_obstructed(helper_rec, robot)
+		return not self.is_obstructed(helper_rec, robot, ignore_robots)
 
-	# def direct_reachable_sideways
+	def direct_reachable_curr_angle(self, fr, to, robot, ignore_robots=False):
+		if robot.center.float_equals(to):
+			return True
+		helper_robot_fr = Rectangle.by_center(fr, robot.width, robot.height, robot.angle)
+		helper_robot_to = Rectangle.by_center(to, robot.width, robot.height, robot.angle)
+		ignore = [robot]
+		if ignore_robots:
+			ignore = self.characters['robots']
+		for i in range(4):
+			seg = LineSegment(helper_robot_fr.vertices[i], helper_robot_to.vertices[i])
+			if self.is_blocked(seg, ignore=ignore, obj=robot):
+				return False
+		return True
+
 
 	def has_winner(self):
 		my_health, enemy_health = self.my_team.total_health(), self.enemy_team.total_health()
@@ -250,10 +219,6 @@ class RobomasterEnv(gym.Env):
 
 	# Moves the game 1 timestep defined by self.tau
 	def step(self):
-		# """
-		# robot_action: a point(x, y) the robot will travel to
-		# enemy_action: a point(x, y) the enemy robot will travel to
-		# """
 
 		winner = self.has_winner()
 		if winner:
@@ -279,14 +244,6 @@ class RobomasterEnv(gym.Env):
 			self.render()
 		elif self.pygame_rendering:
 			self.pygame_render()
-
-		# NOT YET IMPLEMENTED
-		reward = 0.0
-
-		# NOT YET IMPLEMENTED
-		done = False
-
-		return np.array(self.state), reward, done, {}
 
 	# Resets the field to the starting positions
 	def reset(self):
@@ -314,11 +271,9 @@ class RobomasterEnv(gym.Env):
 			if event.type == pygame.QUIT:
 				return self.stop_rendering()
 			if self.keyboard_robot: # NOT FULLY IMPLEMENTED
-				if event.type == pygame.KEYDOWN:
-					print(pygame.key.name(event.key).upper())
-				if event.type == pygame.KEYUP:
-					print(pygame.key.name(event.key).upper())
-					# self.keyboard_robot.handle_key(pygame.key.name(event.key).upper())
+				if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+					# print(pygame.key.name(event.key).upper())
+					self.keyboard_robot.handle_key(pygame.key.name(event.key).upper())
 		
 		if self.joystick_robot: # PENDING
 			pass
@@ -334,21 +289,16 @@ class RobomasterEnv(gym.Env):
 			if l.text:
 				self.viewer.blit(l.text, (l.center.x, l.center.y))
 
+		timer = pygame.transform.flip(self.font.render("TIme: {0}".format(round(self.game_time, 1)), False, COLOR_BLACK), False, True)
+		self.viewer.blit(timer, (12, self.height - 12))
 		self.viewer.blit(pygame.transform.flip(self.viewer, False, True), (0, 0))
 		pygame.display.flip()
 
-	def is_obstructed(self, rec, robot):
+	def is_obstructed(self, rec, robot, ignore_robots=False):
 		for ob in self.impermissibles(robot):
 			if ob.intersects(rec):
-				return True
-		for v in rec.vertices:
-			if not self.is_legal(v):
-				return True
-		return False
-
-	def is_obstructed_ignore_robots(self, rec, robot):
-		for ob in self.characters['obstacles'] + [robot.team.enemy.loading_zone]:
-			if ob.intersects(rec):
+				if ignore_robots and ob.type == "ROBOT":
+					continue
 				return True
 		for v in rec.vertices:
 			if not self.is_legal(v):
@@ -357,8 +307,11 @@ class RobomasterEnv(gym.Env):
 
 	# Returns the object blocking the line segment
 	# Returns False if it's not blocked
-	def is_blocked(self, seg, ignore=[]):
-		for block in self.unpenetrables():
+	def is_blocked(self, seg, ignore=[], obj=None):
+		blockers = self.unpenetrables()
+		if obj and obj.type == "ROBOT":
+			blockers = self.impermissibles(obj)
+		for block in blockers:
 			if block.blocks(seg) and not block in ignore:
 				if block.type == "ARMOR" and block.master in ignore:
 					continue
