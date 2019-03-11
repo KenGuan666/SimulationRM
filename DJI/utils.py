@@ -186,6 +186,16 @@ def display_edges(points, env):
 			env.viewer.add_onetime(edge)
 
 
+def display_path(path, points, to, env):
+	for i in range(len(path) - 1):
+		edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
+		edge.set_color(0,128,0)
+		env.viewer.add_onetime(edge)
+	edge = rendering.PolyLine([points[path[len(path) - 1]].to_list(), to.to_list()], False)
+	edge.set_color(0, 128, 0)
+	env.viewer.add_onetime(edge)
+
+
 COLOR_BLUE = (0, 0, 1)
 COLOR_DARKBLUE = (0, 0, 0.5)
 COLOR_RED = (1, 0, 0)

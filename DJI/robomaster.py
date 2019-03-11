@@ -6,7 +6,7 @@ import math
 import gym
 from gym import spaces, logger
 from utils import *
-#from gym.envs.classic_control import rendering
+# from gym.envs.classic_control import rendering
 import rendering
 from gym.utils import seeding
 from gym.envs.DJI.Objects import *
@@ -17,6 +17,8 @@ import cv2
 
 
 class RobomasterEnv(gym.Env):
+
+
 	# Defining course dimensions
 	width = 800
 	height = 500
@@ -48,6 +50,9 @@ class RobomasterEnv(gym.Env):
 
 		RED.extra_edge = (0, 8)
 		BLUE.extra_edge = (2, 14)
+
+		#initialize robot movement parameter
+		Move.ticks_until_astar_recalc = 1
 
 		# Initialize robots
 		# my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
@@ -91,19 +96,26 @@ class RobomasterEnv(gym.Env):
 		# Init movement network
 		G = nx.Graph()
 		delta = 40
+		# delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 30 #radius of robot + 1 (divide by 2 is deliberate)
+		print("delta: ", delta)
 		self.network_points = []
 		id = 0
 		for block in self.characters['obstacles'] + [self.enemy_team.loading_zone]:
+			#[bottom_left, bottom_right, top_right, top_left]
+			vertices = block.get_vertices()
+			delta_bases = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+			print(vertices)
 			for i in range(4):
-				delta_x, delta_y = abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
-				delta_x *= -delta
+				delta_x, delta_y = delta_bases[i] #abs(i - 1.5) // 1.5 * 2 - 1, i // 2 * 2 - 1
+				delta_x *= delta
 				delta_y *= delta
-				point = block.vertices[i].move(delta_x, delta_y)
+				point = vertices[i].move(delta_x, delta_y)
 				if self.is_legal(point):
 					self.network_points.append(point)
 					G.add_node(id)
 					point.id = id
 					id += 1
+		print("network points ", self.network_points)
 
 		self.network_edges = []
 		for i in range(len(self.network_points)):
