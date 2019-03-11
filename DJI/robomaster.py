@@ -24,6 +24,7 @@ For future modification, consider definition of action set
 
 class RobomasterEnv(gym.Env):
     # Defining course dimensions
+    Move.ticks_until_astar_recalc = 50
     width = 800
     height = 500
     tau = 0.02

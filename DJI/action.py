@@ -212,20 +212,21 @@ class AutoShootingControl(Action):
         else:
             robot.shooting = False
 
-limit = 50
+
 #TODO figure out where to put 'limit' variable -> it controls after how many ticks we recompute the path
 class Move(Action):
-
-    # move_counter = 0
     """
     IMPORTANT: will remember path computed for MOVE
     to reset the path computed, either counter must == conter_max
     OR self.path must be set to None
     """
+
+    ticks_until_astar_recalc = None #Should get overridden in robotmaster.py
+
     def __init__(self, target_point):
         self.target_point = target_point # If target_point is None, then do nothing
-        self.counter_max = limit
-        self.counter = limit
+        self.counter_max = Move.ticks_until_astar_recalc
+        self.counter = Move.ticks_until_astar_recalc
         self.path = None
         # self.print_bool = False
         # Move.move_counter += 1
