@@ -31,7 +31,7 @@ class RobomasterEnv(gym.Env):
         # initialize robot movement parameters
         Move.ticks_until_astar_recalc = 30
         delta = 40  # offset of graph points from wall corners
-        # delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 30 #radius of robot + 1 (divide by 2 is deliberate)
+        # delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 1 #radius of robot + 1 (divide by 2 is deliberate)
 
         # Record time
         self.game_time = 0
@@ -53,14 +53,14 @@ class RobomasterEnv(gym.Env):
         # Initialize robots
         # my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
         my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
-        # my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
+        my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
         enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0)
-        # enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
+        enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
         # enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
         # my_robot.load(40)
         enemy_robot.load(40)
         self.characters['robots'] = [my_robot, enemy_robot]
-        # self.characters['robots'] += [my_robot2, enemy_robot2]
+        self.characters['robots'] += [my_robot2, enemy_robot2]
         for i in range(len(self.characters['robots'])):
             self.characters['robots'][i].id = i
 
