@@ -131,6 +131,18 @@ class Rectangle(Character):
 		helper_upright = UprightRectangle(Point(0, 0), self.width, self.height)
 		return helper_upright.blocks(LineSegment(points[0], points[1]))
 
+	def blocks_path_curr_angle(self, fr, to, robot):
+		if robot.center.float_equals(fr):
+			helper_robot_fr = robot
+		else:
+			helper_robot_fr = Rectangle.by_center(fr, robot.width, robot.height, robot.angle)
+		helper_robot_to = Rectangle.by_center(to, robot.width, robot.height, robot.angle)
+		for i in range(4):
+			seg = LineSegment(helper_robot_fr.vertices[i], helper_robot_to.vertices[i])
+			if self.blocks(seg):
+				return False
+		return True
+
 	def angle_to(self, point):
 		return self.center.angle_to(point)
 
@@ -256,7 +268,7 @@ class LoadingZone(Zone):
 			
 
 	fills = 2
-	tolerance_radius = 3
+	tolerance_radius = 10
 	load_speed = 20 # per sec
 
 	"""

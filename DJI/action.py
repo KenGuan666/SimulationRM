@@ -231,7 +231,9 @@ class Move(Action):
                    robot.max_speed), robot.angle_to(self.target_point)).resolve(robot)
 
         # WAITING ON BETTER PATH ALGORITHM
-        return astar_ignore_enemy(self.target_point, robot)
+        # return astar_ignore_enemy(self.target_point, robot)
+        return full_astar(self.target_point, robot)
+
 
 
 ## PATH ALGORITHM GOES HERE FOR NOW
@@ -294,6 +296,78 @@ def astar_ignore_enemy(to, robot):
     restore_graph()
     return Move(points[path[1]]).resolve(robot)
 
-    # for p in points:
-    #     geom = rendering.Circle(p, 5)
-    #     env.viewer.add_onetime(geom)
+
+def full_astar(to, robot):
+    env = robot.env
+    master = env.master_network
+    removed_edges = []
+    fr_id = len(env.network_points)
+    to_id = fr_id + 1
+    master.add_nodes_from([fr_id, fr_id + 1])
+    master.add_edge(robot.team.extra_edge[0], robot.team.extra_edge[1])
+    
+    robot.center.id, to.id = fr_id, to_id
+    points = env.network_points + [robot.center, to]
+    closest_point, min_dis = None, 9999
+
+    extra_ignore = []
+    for r in env.characters['robots']:
+        if r.center.float_equals(to):
+            extra_ignore = [r]
+            break
+
+    # remove illegal edges
+    for r in env.characters['robots']:
+        if r is robot:
+            continue
+        points_in_radius = get_network_points(points, r)
+        for p_i in points_in_radius:
+            for j_id in list(master.adj[p_i.id]):
+                p_j = points[j_id]
+                if not r.blocks_path_curr_angle(p_i, p_j, robot):
+                    removed_edges.append((p_i.id, p_j.id))
+
+    for p in env.network_points:
+        if p.dis(robot.center) <= 250 and env.direct_reachable_curr_angle(robot.center, p, robot):
+            # total_edges.append(LineSegment(robot.center, p))
+            master.add_edge(fr_id, p.id, weight=robot.center.dis(p))
+        dis = p.dis(to)
+        if dis and dis < min_dis:
+            closest_point, min_dis = p, dis
+        if p.dis(to) <= 250 and env.direct_reachable_curr_angle(p, to, robot, extra_ignore=extra_ignore):
+            # total_edges.append(LineSegment(p, to))
+            master.add_edge(p.id, to_id, weight=dis)
+
+    for e in removed_edges:
+        try:
+            master.remove_edge(e[0], e[1])
+        except nx.NetworkXError as e:
+            continue
+
+    display_edges(points, env)
+    try:
+        path = nx.astar_path(master, fr_id, to_id)
+    except nx.NetworkXNoPath as e:
+        master.add_edges_from(removed_edges)
+        removed_edges = []
+        master.remove_edge(robot.team.extra_edge[0], robot.team.extra_edge[1])
+        master.remove_node(fr_id)
+        master.remove_node(to_id)
+        if closest_point:
+            return Move(closest_point).resolve(robot)
+        return None
+
+    master.add_edges_from(removed_edges)
+    removed_edges = []
+    master.remove_edge(robot.team.extra_edge[0], robot.team.extra_edge[1])
+    master.remove_node(fr_id)
+    master.remove_node(to_id)
+    return Move(points[path[1]]).resolve(robot)
+
+
+def get_network_points(points, robot):
+    env = robot.env
+    center = robot.center
+    return [p for p in points if p.dis(center) < 140]
+   
+

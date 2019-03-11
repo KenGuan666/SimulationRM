@@ -117,7 +117,10 @@ class KeyboardPyglet(Strategy):
         @window.event
         def on_key_press(symbol, modifier):
             if symbol == key.R:
-                RefillCommand().resolve(robot)
+                if robot.team.loading_zone.aligned(robot):
+                    RefillCommand().resolve(robot)
+                else:
+                    Move(robot.team.loading_zone.center).resolve(robot)
 
         if keyboard.is_pressed(self.turnleft):
             actions.append(RotateLeft(robot.max_rotation_speed))

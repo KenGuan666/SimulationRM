@@ -174,6 +174,18 @@ def sign(x):
 	return 0
 
 
+def display_edges(points, env):
+	graph = env.master_network
+	edges = list(graph.edges)
+	# points = env.network_points
+	edges = [(points[e[0]].to_list(), points[e[1]].to_list()) for e in edges]
+
+	if env.rendering:
+		for e in edges:
+			edge = rendering.PolyLine([e[0], e[1]], False)
+			env.viewer.add_onetime(edge)
+
+
 COLOR_BLUE = (0, 0, 1)
 COLOR_DARKBLUE = (0, 0, 0.5)
 COLOR_RED = (1, 0, 0)

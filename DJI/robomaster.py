@@ -15,18 +15,14 @@ import networkx as nx
 import pygame
 import cv2
 
-"""
-Currently doesn't fit into the OpenAI gym model
 
-For future modification, consider definition of action set
-"""
 class RobomasterEnv(gym.Env):
 	# Defining course dimensions
 	width = 800
 	height = 500
 	tau = 0.02
 	full_time = 300
-	display_visibility_map = False
+	display_visibility_map = 0
 	rendering, pygame_rendering = True, False
 	keyboard_robot = False
 	joystick_robot = False
@@ -50,17 +46,20 @@ class RobomasterEnv(gym.Env):
 		BLUE.enemy, RED.enemy = RED, BLUE
 		self.my_team, self.enemy_team = BLUE, RED
 
+		RED.extra_edge = (0, 8)
+		BLUE.extra_edge = (2, 14)
+
 		# Initialize robots
-		my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
-		# my_robot = AttackRobot(self, BLUE, Point(780, 100), 180)
-		my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
+		# my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
+		my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
+		# my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
 		enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0)
-		enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
+		# enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
 		# enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
 		# my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
-		self.characters['robots'] += [my_robot2, enemy_robot2] 
+		# self.characters['robots'] += [my_robot2, enemy_robot2] 
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
@@ -110,15 +109,17 @@ class RobomasterEnv(gym.Env):
 		for i in range(len(self.network_points)):
 			for j in range(i + 1, len(self.network_points)):
 				p_i, p_j = self.network_points[i], self.network_points[j]
-				if self.direct_reachable_forward(p_i, p_j, my_robot, True):
-					self.network_edges.append(LineSegment(p_i, p_j))
+				if p_i.dis(p_j) <= 250 and self.direct_reachable_forward(p_i, p_j, my_robot, True):
+					self.network_edges.append((p_i, p_j))
 					G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
 
-		self.network = G
+		G.remove_edge(2, 14)
+
+		self.master_network = G
 
 		if self.display_visibility_map:
 		    for e in self.network_edges:
-		        edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
+		        edge = rendering.PolyLine([e[0].to_list(), e[1].to_list()], False)
 		        self.viewer.add_geom(edge)
 
 		    for p in self.network_points:
@@ -184,19 +185,31 @@ class RobomasterEnv(gym.Env):
 	def direct_reachable_forward(self, fr, to, robot, ignore_robots=False):
 		if fr.float_equals(to):
 			return True
-		helper_robot = Rectangle.by_center(fr, robot.width, robot.height, fr.angle_to(to))
-		helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width / 2, \
-		    robot.height, fr.angle_to(to))
-		return not self.is_obstructed(helper_rec, robot, ignore_robots)
-
-	def direct_reachable_curr_angle(self, fr, to, robot, ignore_robots=False):
-		if robot.center.float_equals(to):
-			return True
-		helper_robot_fr = Rectangle.by_center(fr, robot.width, robot.height, robot.angle)
+		helper_robot_fr = Rectangle.by_center(fr, robot.width, robot.height, fr.angle_to(to))
+		helper_robot_fr.set_angle(helper_robot_fr.angle - math.atan2(robot.width, robot.height))
+		helper_robot_to = Rectangle.by_center(to, robot.width, robot.height, helper_robot_fr.angle)
+		ignore = [robot]
+		if ignore_robots:
+			ignore = self.characters['robots']
+		for i in range(4):
+			seg = LineSegment(helper_robot_fr.vertices[i], helper_robot_to.vertices[i])
+			if self.is_blocked(seg, ignore=ignore, obj=robot):
+				return False
+		return True
+		# helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width / 2, \
+		#     robot.height, fr.angle_to(to))
+		# return not self.is_obstructed(helper_rec, robot, ignore_robots)
+		
+	def direct_reachable_curr_angle(self, fr, to, robot, ignore_robots=False, extra_ignore=[]):
+		if robot.center.float_equals(fr):
+			helper_robot_fr = robot
+		else:
+			helper_robot_fr = Rectangle.by_center(fr, robot.width, robot.height, robot.angle)
 		helper_robot_to = Rectangle.by_center(to, robot.width, robot.height, robot.angle)
 		ignore = [robot]
 		if ignore_robots:
 			ignore = self.characters['robots']
+		ignore += extra_ignore
 		for i in range(4):
 			seg = LineSegment(helper_robot_fr.vertices[i], helper_robot_to.vertices[i])
 			if self.is_blocked(seg, ignore=ignore, obj=robot):
@@ -265,7 +278,6 @@ class RobomasterEnv(gym.Env):
 		return self.viewer.render(return_rgb_array = mode == 'rgb_array')
 
 	def pygame_render(self):
-		self.viewer.fill(PYGAME_COLOR_WHITE)
 
 		for event in pygame.event.get(): 
 			if event.type == pygame.QUIT:
@@ -292,6 +304,7 @@ class RobomasterEnv(gym.Env):
 		timer = pygame.transform.flip(self.font.render("TIme: {0}".format(round(self.game_time, 1)), False, COLOR_BLACK), False, True)
 		self.viewer.blit(timer, (12, self.height - 12))
 		self.viewer.blit(pygame.transform.flip(self.viewer, False, True), (0, 0))
+		# self.viewer.blit(pygame.transform.rotate(self.viewer, 10), (0, 0))
 		pygame.display.flip()
 
 	def is_obstructed(self, rec, robot, ignore_robots=False):
