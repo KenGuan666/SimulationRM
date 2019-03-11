@@ -30,6 +30,10 @@ class RobomasterEnv(gym.Env):
 	joystick_robot = False
 
 	def __init__(self):
+		# initialize robot movement parameters
+		Move.ticks_until_astar_recalc = 30
+		delta = 40  # offset of graph points from wall corners
+		# delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 30 #radius of robot + 1 (divide by 2 is deliberate)
 
 		# Record time
 		self.game_time = 0
@@ -48,9 +52,6 @@ class RobomasterEnv(gym.Env):
 		BLUE.enemy, RED.enemy = RED, BLUE
 		self.my_team, self.enemy_team = BLUE, RED
 
-		#initialize robot movement parameter
-		Move.ticks_until_astar_recalc = 1
-
 		# Initialize robots
 		# my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
 		my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
@@ -61,29 +62,29 @@ class RobomasterEnv(gym.Env):
 		# my_robot.load(40)
 		enemy_robot.load(40)
 		self.characters['robots'] = [my_robot, enemy_robot]
-		# self.characters['robots'] += [my_robot2, enemy_robot2] 
+		# self.characters['robots'] += [my_robot2, enemy_robot2]
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
 		# Defining course obstacles
 		self.characters['obstacles'] = [Obstacle(p[0], p[1], p[2])
-		    for p in [(Point(325, 0), 25, 100), (Point(450, 400), 25, 100),
-				(Point(350, 238), 100, 25), (Point(580, 100), 100, 25),
-				(Point(120, 375), 100, 25), (Point(140, 140), 25, 100),
-				(Point(635, 260), 25, 100)]]
+										for p in [(Point(325, 0), 25, 100), (Point(450, 400), 25, 100),
+												  (Point(350, 238), 100, 25), (Point(580, 100), 100, 25),
+												  (Point(120, 375), 100, 25), (Point(140, 140), 25, 100),
+												  (Point(635, 260), 25, 100)]]
 
 		# Team start areas
 		self.starting_zones = [StartingZone(p[0], p[1]) for p in [(Point(0, 0), BLUE),
-		(Point(700, 0), BLUE), (Point(0, 400), RED), (Point(700, 400), RED)]]
+																  (Point(700, 0), BLUE), (Point(0, 400), RED), (Point(700, 400), RED)]]
 
 		self.defense_buff_zones = [DefenseBuffZone(p[0], p[1], self) for p in [
-		(Point(120, 275), BLUE), (Point(580, 125), RED)]]
+			(Point(120, 275), BLUE), (Point(580, 125), RED)]]
 
 		self.loading_zones = [LoadingZone(p[0], p[1], self) for p in [
-		(Point(350, 400), BLUE), (Point(350, 0), RED)]]
+			(Point(350, 400), BLUE), (Point(350, 0), RED)]]
 
 		self.characters['zones'] = self.starting_zones + self.defense_buff_zones + \
-		    self.loading_zones
+								   self.loading_zones
 
 		if self.rendering:
 			self.init_rendering()
@@ -92,13 +93,10 @@ class RobomasterEnv(gym.Env):
 
 		# Init movement network
 		G = nx.Graph()
-		delta = 40
-		# delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 30 #radius of robot + 1 (divide by 2 is deliberate)
-		print("delta: ", delta)
+		#delta declaration at the top of this function
 		self.network_points = []
 		id = 0
 		for block in self.characters['obstacles'] + [self.enemy_team.loading_zone]:
-			#[bottom_left, bottom_right, top_right, top_left]
 			vertices = block.get_vertices()
 			delta_bases = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
 			print(vertices)
@@ -112,7 +110,6 @@ class RobomasterEnv(gym.Env):
 					G.add_node(id)
 					point.id = id
 					id += 1
-		print("network points ", self.network_points)
 
 		self.network_edges = []
 		for i in range(len(self.network_points)):
@@ -123,21 +120,21 @@ class RobomasterEnv(gym.Env):
 					G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
 
 		#remove edges that go through enemy loading zone (assign valid edges to appropriate team)
-		# RED.extra_weighted_edge = (0, 8, G[0][8]['weight'])
-		# BLUE.extra_weighted_edge = (2, 14, G[2][14]['weight'])
-		# G.remove_edge(0, 8)
-		# G.remove_edge(2, 14)
+		# RED.extra_weighted_edge = (0, 8, G[0][8]['weight']) #TODO
+		# BLUE.extra_weighted_edge = (2, 14, G[2][14]['weight']) #TODO
+		# G.remove_edge(0, 8) #TODO
+		# G.remove_edge(2, 14) #TODO
 
 		self.master_network = G
 
 		if self.display_visibility_map:
-		    for e in self.network_edges:
-		        edge = rendering.PolyLine([e[0].to_list(), e[1].to_list()], False)
-		        self.viewer.add_geom(edge)
+			for e in self.network_edges:
+				edge = rendering.PolyLine([e[0].to_list(), e[1].to_list()], False)
+				self.viewer.add_geom(edge)
 
-		    for p in self.network_points:
-		        geom = rendering.Circle(p, 5)
-		        self.viewer.add_geom(geom)
+			for p in self.network_points:
+				geom = rendering.Circle(p, 5)
+				self.viewer.add_geom(geom)
 
 	def init_rendering(self):
 		self.viewer = rendering.Viewer(self.width, self.height)
@@ -146,9 +143,9 @@ class RobomasterEnv(gym.Env):
 
 		health_bar_params = (20, 260)
 		self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-			health_bar_params[0], health_bar_params[1]), self.viewer)
+													 health_bar_params[0], health_bar_params[1]), self.viewer)
 		self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-			self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
+															  self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
 
 		for char in self.inactables():
 			geoms = char.render()
@@ -161,12 +158,12 @@ class RobomasterEnv(gym.Env):
 		self.viewer = pygame.display.set_mode([self.width, self.height])
 
 		self.font = pygame.font.SysFont('timesnewroman', 15)
-		
+
 		health_bar_params = (20, 260)
 		self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
-			health_bar_params[0], health_bar_params[1]))
+													 health_bar_params[0], health_bar_params[1]))
 		self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-			self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]))
+															  self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]))
 
 	def stop_rendering(self):
 		if self.rendering:
@@ -179,7 +176,7 @@ class RobomasterEnv(gym.Env):
 
 	def actables(self):
 		return self.loading_zones + self.defense_buff_zones + \
-		    self.characters['robots'] + self.characters['bullets']
+			   self.characters['robots'] + self.characters['bullets']
 
 	def inactables(self):
 		return self.starting_zones + self.characters['obstacles']
@@ -192,8 +189,8 @@ class RobomasterEnv(gym.Env):
 
 	def impermissibles(self, robot):
 		return list(filter(lambda r: not r == robot, self.characters['robots'])) \
-		    + self.characters['obstacles'] \
-		    + list(filter(lambda z: not z.permissble(robot.team), self.loading_zones))
+			   + self.characters['obstacles'] \
+			   + list(filter(lambda z: not z.permissble(robot.team), self.loading_zones))
 
 	def direct_reachable_forward(self, fr, to, robot, ignore_robots=False):
 		if fr.float_equals(to):
@@ -212,7 +209,7 @@ class RobomasterEnv(gym.Env):
 		# helper_rec = Rectangle(helper_robot.bottom_left, fr.dis(to) + robot.width / 2, \
 		#     robot.height, fr.angle_to(to))
 		# return not self.is_obstructed(helper_rec, robot, ignore_robots)
-		
+
 	def direct_reachable_curr_angle(self, fr, to, robot, ignore_robots=False, extra_ignore=[]):
 		if robot.center.float_equals(fr):
 			helper_robot_fr = robot
@@ -286,20 +283,20 @@ class RobomasterEnv(gym.Env):
 			for geom in geoms:
 				self.viewer.add_onetime(geom)
 		self.viewer.add_onetime_text("Time: {0} seconds".format(round(self.game_time, 1)), \
-		    10, 12, self.height - 12)
+									 10, 12, self.height - 12)
 
 		return self.viewer.render(return_rgb_array = mode == 'rgb_array')
 
 	def pygame_render(self):
 
-		for event in pygame.event.get(): 
+		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
 				return self.stop_rendering()
 			if self.keyboard_robot: # NOT FULLY IMPLEMENTED
 				if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
 					# print(pygame.key.name(event.key).upper())
 					self.keyboard_robot.handle_key(pygame.key.name(event.key).upper())
-		
+
 		if self.joystick_robot: # PENDING
 			pass
 
@@ -348,27 +345,27 @@ class RobomasterEnv(gym.Env):
 		return point.x >= 0 and point.x <= self.width and point.y >= 0 and point.y <= self.height
 
 	"""
-	State:
-	[0]: game_time. Total number of steps elapsed. Equivalent to game_time/50 seconds
-	[1]: number of robots on each team
-	[2-41]: state of 4 robots. non-existant robots are 0 padded. 9 numbers each
-	        [2-3]: x, y coord of center of robot
-			[4]: robot angle in degrees  [5]: robot gun angle relative to front in degrees
-			[6]: bullet count [7]: remaining number of rounds of shooting cooldown
-			[8]: remaining number of rounds of defense buff [9]: flag=1 if robot is shooting 0 otherwise
-			[10]: remaining health  [11]: robot type index
-	[42-51]: state of two defense zones.
-			[42]: flag=1 if can be activated 0 otherwise
-			[43-46]: number of seconds the zone has been touched by each robot
-	[52-57]: state of two loading zones.
-			[52]: number of refills available
-			[53]: number of bullets not yet poured from previous refill
-			[54]: number of bullets loaded into the current robot
-	[58-297]: state of 60 bullets.
-			[58-59]: x, y coord of bullet
-			[60]: direction of bullet in radian
-			[61]: id of bullet's master robot
-	"""
+    State:
+    [0]: game_time. Total number of steps elapsed. Equivalent to game_time/50 seconds
+    [1]: number of robots on each team
+    [2-41]: state of 4 robots. non-existant robots are 0 padded. 9 numbers each
+            [2-3]: x, y coord of center of robot
+            [4]: robot angle in degrees  [5]: robot gun angle relative to front in degrees
+            [6]: bullet count [7]: remaining number of rounds of shooting cooldown
+            [8]: remaining number of rounds of defense buff [9]: flag=1 if robot is shooting 0 otherwise
+            [10]: remaining health  [11]: robot type index
+    [42-51]: state of two defense zones.
+            [42]: flag=1 if can be activated 0 otherwise
+            [43-46]: number of seconds the zone has been touched by each robot
+    [52-57]: state of two loading zones.
+            [52]: number of refills available
+            [53]: number of bullets not yet poured from previous refill
+            [54]: number of bullets loaded into the current robot
+    [58-297]: state of 60 bullets.
+            [58-59]: x, y coord of bullet
+            [60]: direction of bullet in radian
+            [61]: id of bullet's master robot
+    """
 
 	def generate_state(self):
 		game_time = [int(self.game_time / self.tau)]
