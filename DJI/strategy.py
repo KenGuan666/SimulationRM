@@ -44,7 +44,16 @@ class Strategy:
 
     def decide_with_default(self, robot):
         action = self.decide(robot)
-        default = [AutoAim(robot.get_enemy()), AutoShootingControl()]
+        enemy = robot.get_enemy()
+        ls = LineSegment(robot.center, enemy.center)
+        degrees = (math.degrees(math.atan2(ls.y_diff, ls.x_diff)) + 45) % 360
+
+        if robot.team.color[0] > 0:
+            print('angle', robot.angle)
+            print('slope', ls.slope)
+
+        #AUTO ROTATE
+        default = [AutoAim(enemy), AutoShootingControl(), Rotate(degrees)]
         if robot.shooting == True:
             default += [Fire()]
         if action:

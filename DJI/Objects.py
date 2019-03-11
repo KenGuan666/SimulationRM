@@ -565,11 +565,23 @@ class Robot(Rectangle):
 	def add_defense_buff(self, time):
 		self.defense_buff_timer = time
 
+	"""
+	Returns the enemy that is the closest, visble enemy
+	"""
 	def get_enemy(self):
 		enemy = self.team.enemy
-		if enemy.robots[0].health == 0:
-			return enemy.robots[1]
-		return enemy.robots[0]
+		robots = enemy.robots
+		visible_robots = list(filter(lambda enemy: not self.env.is_blocked(LineSegment(self.center, enemy.center), [self, enemy]), robots))
+		
+		if visible_robots:
+			robots = sorted(visible_robots, key=lambda enemy: self.center.dis(enemy.center))
+		else:
+			robots = sorted(robots, key=lambda enemy: self.center.dis(enemy.center))
+		
+		if robots[0].health == 0:
+			return robots[1]
+
+		return robots[0]
 
 	"""
 	Determine a strategy based on information in self.env

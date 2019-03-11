@@ -91,6 +91,8 @@ class LineSegment:
 			self.slope = float('inf')
 		else:
 			self.slope = (point_to.y - point_from.y) / (point_to.x - point_from.x)
+		self.y_diff = (point_to.y - point_from.y)
+		self.x_diff = (point_to.x - point_from.x)
 
 	def y_at(self, x):
 		if self.slope == float('inf'):
