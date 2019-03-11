@@ -214,13 +214,14 @@ class AutoShootingControl(Action):
 
 class AutoRotate(Action):
 
-    def __init__(self, target_robot):
+    def __init__(self, target_robot, degrees_offset=45):
         self.target = target_robot
+        self.degrees_offset = degrees_offset
 
     def resolve(self, robot):
         ls = LineSegment(robot.center, self.target.center)
-        degrees = (math.degrees(math.atan2(ls.y_diff, ls.x_diff)) + 45) % 360
-        return Rotate(degrees)
+        degrees = (math.degrees(math.atan2(ls.y_diff, ls.x_diff)) + self.degrees_offset) % 360
+        return Rotate(degrees).resolve(robot)
 
 #TODO figure out where to put 'limit' variable -> it controls after how many ticks we recompute the path
 class Move(Action):
