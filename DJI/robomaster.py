@@ -48,9 +48,6 @@ class RobomasterEnv(gym.Env):
 		BLUE.enemy, RED.enemy = RED, BLUE
 		self.my_team, self.enemy_team = BLUE, RED
 
-		RED.extra_edge = (0, 8)
-		BLUE.extra_edge = (2, 14)
-
 		#initialize robot movement parameter
 		Move.ticks_until_astar_recalc = 1
 
@@ -125,7 +122,11 @@ class RobomasterEnv(gym.Env):
 					self.network_edges.append((p_i, p_j))
 					G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
 
-		G.remove_edge(2, 14)
+		#remove edges that go through enemy loading zone (assign valid edges to appropriate team)
+		# RED.extra_weighted_edge = (0, 8, G[0][8]['weight'])
+		# BLUE.extra_weighted_edge = (2, 14, G[2][14]['weight'])
+		# G.remove_edge(0, 8)
+		# G.remove_edge(2, 14)
 
 		self.master_network = G
 
