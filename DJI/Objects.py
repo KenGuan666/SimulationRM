@@ -498,6 +498,9 @@ class Robot(Rectangle):
 		self.preset_action = None
 		self.preset_timer = 0
 
+		# strategy to choose
+		self.default_strat = None
+
 	def init_from_state(state, env, team):
 		robot_type = strats[state[9]]
 		self = robot_type(env, team, Point(state[0], state[1]), state[2])
@@ -560,7 +563,7 @@ class Robot(Rectangle):
 	Determine a strategy based on information in self.env
 	"""
 	def get_strategy(self):
-		pass
+		return self.default_strat
 
 	"""
 	The function evoked by Environment each turn
@@ -618,25 +621,30 @@ class Robot(Rectangle):
 
 class DummyRobot(Robot):
 
-	def get_strategy(self):
-		return DoNothing()
-
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = DoNothing()
 
 class CrazyRobot(Robot):
 
 	strategy_id = 1
 
-	def get_strategy(self):
-		return SpinAndFire()
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = SpinAndFire()
 
 
 class AttackRobot(Robot):
 
 	strategy_id = 2
 
-	def get_strategy(self):
-		target = self.team.enemy.robots[0]
-		return Attack()
+	def __init__(self, env, team, bottom_left, angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = Attack()
+
+	# def get_strategy(self):
+	# 	target = self.team.enemy.robots[0]
+	# 	return Attack()
 
 
 class AttackWithRadiusRobot(Robot):

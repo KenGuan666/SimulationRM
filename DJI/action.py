@@ -212,30 +212,64 @@ class AutoShootingControl(Action):
         else:
             robot.shooting = False
 
-
+limit = 50
+#TODO figure out where to put 'limit' variable -> it controls after how many ticks we recompute the path
 class Move(Action):
 
+    # move_counter = 0
+    """
+    IMPORTANT: will remember path computed for MOVE
+    to reset the path computed, either counter must == conter_max
+    OR self.path must be set to None
+    """
     def __init__(self, target_point):
+        self.target_point = target_point # If target_point is None, then do nothing
+        self.counter_max = limit
+        self.counter = limit
+        self.path = None
+        # self.print_bool = False
+        # Move.move_counter += 1
+        # print(Move.move_counter)
+
+    def set_target_point(self, target_point, recompute=True):
+        # self.print_bool and print("recompute = " + str(recompute))
+        # self.print_bool and print("target = " + str(target_point))
         self.target_point = target_point
+        if recompute:
+            self.path = None
 
     def resolve(self, robot):
-        if robot.center.float_equals(self.target_point):
+        if self.target_point is None or robot.center.float_equals(self.target_point):
+            # self.print_bool and print("reach!")
+            self.path = None
             return
-        # if robot.env.direct_reachable_forward(robot.center, self.target_point, robot, True):
-        #     if float_equals(robot.angle_to(self.target_point), robot.angle):
-        #         return MoveForward(robot.angle, min(robot.center.dis(self.target_point), \
-        #            robot.max_speed)).resolve(robot)
-        #     return Aim(self.target_point).resolve(robot)
-        if robot.env.direct_reachable_curr_angle(robot.center, self.target_point, robot):
-            return MoveAtAngle(0, min(robot.center.dis(self.target_point), \
-                   robot.max_speed), robot.angle_to(self.target_point)).resolve(robot)
+
+        #init path
+        if not self.path:
+            self.path = astar_ignore_enemy(self.target_point, robot)
+
+        #check if need to recalc path
+        self.counter += 1
+        if self.counter >= self.counter_max:
+            self.counter = 0
+            self.path = astar_ignore_enemy(self.target_point, robot)
+
+        #update waypoint
+        if robot.center.float_equals(self.path[0]):
+            if len(self.path) > 2 or robot.env.direct_reachable_curr_angle(robot.center, self.path[-1], robot):
+                self.path = self.path[1:]
+
+        #move to first waypoint of path
+        if (len(self.path) > 0) and robot.env.direct_reachable_curr_angle(robot.center, self.path[0], robot):
+            return MoveAtAngle(0, min(robot.center.dis(self.path[0]),
+                   robot.max_speed), robot.angle_to(self.path[0])).resolve(robot)
 
         # WAITING ON BETTER PATH ALGORITHM
-        return astar_ignore_enemy(self.target_point, robot)
 
 
 ## PATH ALGORITHM GOES HERE FOR NOW
 
+# returns path
 def astar_ignore_enemy(to, robot):
     env = robot.env
     G = env.network
@@ -255,7 +289,6 @@ def astar_ignore_enemy(to, robot):
             for p_id in restore_edges:
                 env.network.add_edge(points[p_id].id, removed_point.id, weight=points[p_id].dis(removed_point))
 
-    # total_edges = []
     for p in env.network_points:
         if p.float_equals(robot.center):
             removed_point = p
@@ -271,15 +304,15 @@ def astar_ignore_enemy(to, robot):
         if env.direct_reachable_forward(p, to, robot, ignore_robots=True):
             # total_edges.append(LineSegment(p, to))
             G.add_edge(p.id, to_id, weight=dis)
+    if env.direct_reachable_forward(robot.center, to, robot, ignore_robots=False):
+        G.add_edge(fr_id, to_id, weight=robot.center.dis(to))
 
-    # total_edges += env.network_edges
-   
     try:
         path = nx.astar_path(G, fr_id, to_id)
     except nx.NetworkXNoPath as e:
         restore_graph()
         if closest_point:
-            return Move(closest_point).resolve(robot)
+            return astar_ignore_enemy(closest_point, robot)
         return None
 
     if env.rendering:
@@ -292,7 +325,9 @@ def astar_ignore_enemy(to, robot):
     # if points[path[1]].float_equals(robot.center):
     #     return Move(points[path[2]]).resolve(robot)
     restore_graph()
-    return Move(points[path[1]]).resolve(robot)
+    # return Move(points[path[1]]) #.resolve(robot)
+    # print([points[path[i]] for i in range(0,len(path))])
+    return [points[path[i]] for i in range(1,len(path))] # remove current robot point
 
     # for p in points:
     #     geom = rendering.Circle(p, 5)

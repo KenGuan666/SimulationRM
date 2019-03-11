@@ -17,6 +17,31 @@ They use the CLASS OBJECT for operations
 """
 class Strategy:
 
+    def __init__(self):
+        self.move = Move(None) #None means there is no where to move to, .resolve will do nothing
+
+    def move_to(self, target_point, recompute):
+        """
+        :param target_point: point to move to
+        :param recompute: whether or not to immediately recalculate A*,
+                            false -> keep following old path // true -> find new path (does nothing if target_point is null)
+        """
+        self.move.set_target_point(target_point, recompute)
+
+    def stay_put(self):
+        """
+        tells the move object to NOT move
+        """
+        self.move_to(None, recompute=True)
+
+    def substrat_decide(self, substrat, robot):
+        temp = substrat.decide(robot)
+        self.move = substrat.move
+        return temp
+
+    def set_substrat(self, substrat):
+        substrat.move = self.move
+
     def decide_with_default(self, robot):
         action = self.decide(robot)
         default = [AutoAim(robot.get_enemy()), AutoShootingControl()]
@@ -26,7 +51,7 @@ class Strategy:
             if type(action) == list:
                 return default + action
             return default + [action]
-        return default
+        return default + [self.move]
 
     def name():
         pass
@@ -68,19 +93,31 @@ class SpinAndFire(Strategy):
 
 class Chase(Strategy):
 
-    def __init__(self, target_robot):
+    def __init__(self):
+        super().__init__()
+        self.target_robot = None
+
+    def choose_target_robot(self, target_robot):
         self.target_robot = target_robot
 
     def decide(self, robot):
         if robot.center.dis(self.target_robot.center) > robot.range or \
            robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), ignore=[robot, self.target_robot]):
-            return [Move(self.target_robot.center)]
+            self.move_to(self.target_robot.center, False) # don't need an immediate recompute for chasing
+            return None
         if float_equals(robot.angle_to(self.target_robot.center), robot.angle + robot.gun_angle):
+            self.stay_put()
             return None
         return [Aim(self.target_robot.center)]
 
 
 class Attack(Strategy):
+
+    def __init__(self):
+        super().__init__()
+        self.chase_sub_strat = Chase()
+        self.set_substrat(self.chase_sub_strat)
+        # self.chase_sub_strat.move.print_bool = True #TO/DO REMOVE
 
     def decide(self, robot):
         enemy = robot.get_enemy()
@@ -91,9 +128,12 @@ class Attack(Strategy):
             if robot.bullet < robot.bullet_capacity - 100 and loader.fills > 0:
                 return RefillCommand()
         if robot.bullet > 0:
-            return Chase(enemy).decide(robot)
+            self.chase_sub_strat.choose_target_robot(enemy)
+            # return Chase(enemy).decide(robot)
+            return self.substrat_decide(self.chase_sub_strat, robot)
         else:
-            return Move(loader.loading_point)
+            return self.move_to(loader.loading_point, recompute=False)
+            # return Move(loader.loading_point)
 
 
 class AttackWithR(Strategy):
@@ -103,6 +143,7 @@ class AttackWithR(Strategy):
 class KeyboardPyglet(Strategy):
 
     def __init__(self, controls):
+        super().__init__()
         self.controls = controls
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
             self.refill] = controls
@@ -137,6 +178,7 @@ class KeyboardPyglet(Strategy):
 class KeyboardPygame(Strategy):
     
     def __init__(self, controls):
+        super().__init__()
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
             self.refill] = controls
         self.actions = []
