@@ -206,7 +206,7 @@ class SwitchShootingOff(Action):
 
 class AutoShootingControl(Action):
 
-    def resolve(self, robot):
+    def resolve(self, robot): #TODO resolve bug, sometimes doesn't shoot when it can
         if robot.aimed_at_enemy():
             robot.shooting = True
         else:
