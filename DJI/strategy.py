@@ -105,7 +105,7 @@ class Chase(Strategy):
 
     def decide(self, robot):
         if robot.center.dis(self.target_robot.center) > robot.range or \
-           robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), ignore=[robot, self.target_robot]):
+           robot.env.is_blocked(LineSegment(robot.get_gun().center, self.target_robot.center), ignore=[robot, self.target_robot]):
             self.move_to(self.target_robot.center, False) # don't need an immediate recompute for chasing
             return None
         if float_equals(robot.angle_to(self.target_robot.center), robot.angle + robot.gun_angle):
