@@ -53,14 +53,14 @@ class RobomasterEnv(gym.Env):
         # Initialize robots
         # my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
         my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
-        my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
+        # my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
         enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0)
-        enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
+        # enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
         # enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
         # my_robot.load(40)
         enemy_robot.load(40)
         self.characters['robots'] = [my_robot, enemy_robot]
-        self.characters['robots'] += [my_robot2, enemy_robot2]
+        # self.characters['robots'] += [my_robot2, enemy_robot2]
         for i in range(len(self.characters['robots'])):
             self.characters['robots'][i].id = i
 
@@ -186,7 +186,7 @@ class RobomasterEnv(gym.Env):
         plates = []
         for r in self.characters['robots']:
             plates += r.get_armor()
-        return self.characters['obstacles'] + plates + self.characters['robots']
+        return plates + self.characters['robots'] + self.characters['obstacles']
 
     def impermissibles(self, robot):
         return list(filter(lambda r: not r == robot, self.characters['robots'])) \
@@ -347,6 +347,18 @@ class RobomasterEnv(gym.Env):
                     continue
                 return block
         return False
+
+    def return_blockers(self, seg, ignore=[], obj=None):
+        blockers = self.unpenetrables()
+        retval = []
+        if obj and obj.type == "ROBOT":
+            blockers = self.impermissibles(obj)
+        for block in blockers:
+            if block.blocks(seg) and not block in ignore:
+                if block.type == "ARMOR" and block.master in ignore:
+                    continue
+                retval.append(block)
+        return retval
 
     def is_legal(self, point):
         return point.x >= 0 and point.x <= self.width and point.y >= 0 and point.y <= self.height

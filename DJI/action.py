@@ -214,7 +214,7 @@ class AutoShootingControl(Action):
 
 class AutoRotate(Action):
 
-    def __init__(self, target_robot, degrees_offset=45):
+    def __init__(self, target_robot, degrees_offset=30):
         self.target = target_robot
         self.degrees_offset = degrees_offset
 
