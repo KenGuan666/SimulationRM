@@ -242,7 +242,7 @@ class RobomasterEnv(gym.Env):
             return "DRAW"
 
     # Moves the game 1 timestep defined by self.tau
-    def step(self):
+    def step(self, executor):
 
         winner = self.has_winner()
         if winner:
@@ -260,8 +260,12 @@ class RobomasterEnv(gym.Env):
             for z in self.defense_buff_zones + self.loading_zones:
                 z.reset()
 
-        for char in self.actables():
+
+        def char_act(char):
             char.act()
+
+        for char in self.actables():
+            executor.submit(char_act, char)
 
         self.state = self.generate_state()
         if self.rendering:
