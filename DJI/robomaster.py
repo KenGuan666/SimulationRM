@@ -29,7 +29,7 @@ class RobomasterEnv(gym.Env):
 
     def __init__(self):
         # initialize robot movement parameters
-        Move.ticks_until_astar_recalc = 30
+        Move.ticks_until_astar_recalc = 25
         delta = 40  # offset of graph points from wall corners
         # delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 1 #radius of robot + 1 (divide by 2 is deliberate)
 
@@ -113,7 +113,7 @@ class RobomasterEnv(gym.Env):
         for i in range(len(self.network_points)):
             for j in range(i + 1, len(self.network_points)):
                 p_i, p_j = self.network_points[i], self.network_points[j]
-                if p_i.dis(p_j) <= 250 and self.direct_reachable_forward(p_i, p_j, my_robot, True):
+                if p_i.dis(p_j) <= 250 and self.direct_reachable_forward(p_i, p_j, my_robot, ignore_robots=True):
                     self.network_edges.append((p_i, p_j))
                     G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
 
@@ -256,7 +256,7 @@ class RobomasterEnv(gym.Env):
 
         self.game_time += self.tau
 
-        if int(self.game_time) % 30 == 0:
+        if int(self.game_time) % 30 == 0 and self.game_time - int(self.game_time) < self.tau:
             for z in self.defense_buff_zones + self.loading_zones:
                 z.reset()
 
