@@ -649,6 +649,12 @@ class DummyRobot(Robot):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = DoNothing()
 
+class DefensiveRobot(Robot):
+
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = BreakLine()
+
 class CrazyRobot(Robot):
 
 	strategy_id = 1
@@ -731,4 +737,4 @@ class JoystickRobot(Robot):
 
 
 
-strats = [DummyRobot, CrazyRobot, AttackRobot]
+strats = [DummyRobot, CrazyRobot, AttackRobot, DefensiveRobot]

@@ -239,10 +239,11 @@ class Move(Action):
         self.counter = Move.ticks_until_astar_recalc
         self.path = None
 
-    def set_target_point(self, target_point, recompute=True):
-        self.target_point = target_point
-        if recompute:
+    def set_target_point(self, target_point, recompute, force_compute=False):
+
+        if force_compute or (recompute and not self.target_point.float_equals(target_point)):
             self.path = None
+        self.target_point = target_point
 
     def resolve(self, robot):
         if self.target_point is None or robot.center.float_equals(self.target_point):

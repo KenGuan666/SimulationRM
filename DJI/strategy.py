@@ -20,13 +20,15 @@ class Strategy:
     def __init__(self):
         self.move = Move(None) #None means there is no where to move to, .resolve will do nothing
 
-    def move_to(self, target_point, recompute):
+    def move_to(self, target_point, recompute, force_compute = False):
         """
         :param target_point: point to move to
-        :param recompute: whether or not to immediately recalculate A*,
-                            false -> keep following old path // true -> find new path (does nothing if target_point is null)
+        :param recompute: whether or not to immediately recalculate A* IF target_point changes,
+                            false -> keep following old path
+                            true && target changes-> find new path (does nothing if target_point is null)
+        :param force_compute: if true, always recompute path, even if target_point is the same
         """
-        self.move.set_target_point(target_point, recompute)
+        self.move.set_target_point(target_point, recompute, force_compute=force_compute)
 
     def stay_put(self):
         """
@@ -56,8 +58,9 @@ class Strategy:
             return default + [action]
         return default + [self.move]
 
-    def name():
-        pass
+    @classmethod
+    def name(cls):
+        return cls.__name__
 
 
 class Patrol(Strategy):
@@ -67,17 +70,32 @@ class Patrol(Strategy):
     def decide(self, robot):
         pass
 
-    def name():
-        return "PATROL"
-
 
 class DoNothing(Strategy):
 
     def decide(self, robot):
         return None
 
-    def name():
-        return "DO NOTHING"
+
+class BreakLine(Strategy):
+
+    def __init__(self):
+        self.additional_key_points = []
+
+    def decide(self, robot):
+        enemy = robot.get_enemy()
+        if robot.center.dis(enemy.center) > robot.range or \
+           robot.env.is_blocked(LineSegment(robot.center, enemy.center), [robot, enemy]):
+            # print('blocked!')
+            return None
+        else:
+            # print('not blocked!')
+            search_pts = sorted(robot.env.network_points + self.additional_key_points, key=lambda x: robot.center.dis(x))
+            for i in search_pts:
+                if robot.env.is_blocked(LineSegment(enemy.center, i), [robot, enemy]):
+                    loader = robot.team.loading_zone
+                    self.move_to(i, recompute=True)
+                    return None
 
 
 class SpinAndFire(Strategy):
@@ -89,9 +107,6 @@ class SpinAndFire(Strategy):
         #        line_block.type == "ARMOR" and not (robot.team is line_block.master.team):
         #         return []
         pass
-
-    def name():
-        return "SPIN&FIRE"
 
 
 class Chase(Strategy):
