@@ -154,7 +154,7 @@ class AutoAim(Action):
         self.target = target_robot
 
     def resolve(self, robot):
-        goal, curr = robot.angle_to(self.target.center) - robot.angle, robot.gun_angle
+        goal, curr = robot.get_gun_base().angle_to(self.target.center) - robot.angle, robot.gun_angle
         if float_equals(goal, curr):
             return
         diff = goal - curr
@@ -214,7 +214,7 @@ class AutoShootingControl(Action):
 
 class AutoRotate(Action):
 
-    def __init__(self, target_robot, degrees_offset=45):
+    def __init__(self, target_robot, degrees_offset=30):
         self.target = target_robot
         self.degrees_offset = degrees_offset
 
@@ -241,6 +241,7 @@ class Move(Action):
         self.counter_max = Move.ticks_until_astar_recalc
         self.counter = Move.ticks_until_astar_recalc
         self.path = None
+
 
     def set_target_point(self, target_point, recompute, force_compute=False, backups = []):
 
@@ -269,12 +270,16 @@ class Move(Action):
             return
 
         #update waypoint
+
         if robot.center.float_equals(self.path[0]):
             if len(self.path) > 2 or robot.env.direct_reachable_curr_angle(robot.center, self.path[-1], robot):
                 self.path = self.path[1:]
 
+        print(self.path[0])
+
         #move to first waypoint of path
-        if (len(self.path) > 0) and robot.env.direct_reachable_curr_angle(robot.center, self.path[0], robot):
+        #  and robot.env.direct_reachable_curr_angle(robot.center, self.path[0], robot)
+        if (len(self.path) > 0):
             return MoveAtAngle(0, min(robot.center.dis(self.path[0]),
                    robot.max_speed), robot.angle_to(self.path[0])).resolve(robot)
 
@@ -308,13 +313,13 @@ def full_astar(to, robot, closest_point_try= False):
 
     # remove illegal edges
     for r in env.characters['robots']:
-        if r is robot or r in extra_ignore:
+        if r is robot:
             continue
         points_in_radius = get_network_points(env.network_points, r) #TODO make parameter for illegal edge collision
         for p_i in points_in_radius:
             for j_id in list(master.adj[p_i.id]):
                 p_j = points[j_id]
-                if master.has_edge(p_i, p_j) and not r.blocks_path_curr_angle(p_i, p_j, robot):
+                if master.has_edge(p_i.id, p_j.id) and not r.blocks_path_curr_angle(p_i, p_j, robot):
                     removed_weighted_edges.append((p_i.id, p_j.id, master[p_i.id][p_j.id]['weight'])) # save weight
 
     # for all nodes visible to robot.center and to-point, add an edge + weight
@@ -326,7 +331,7 @@ def full_astar(to, robot, closest_point_try= False):
                 removed_weighted_edges.extend([(u,v,master[u][v]['weight']) for u,v in master.edges(p.id)])
                 continue
         dis = p.dis(to)
-        if dis and dis < min_dis:
+        if dis and dis < min_dis and dis > 10:
             closest_point, min_dis = p, dis
         if p.dis(to) <= 250 and env.direct_reachable_curr_angle(p, to, robot, extra_ignore=extra_ignore):
             master.add_edge(p.id, to_id, weight=dis)

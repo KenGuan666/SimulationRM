@@ -29,7 +29,7 @@ class RobomasterEnv(gym.Env):
 
     def __init__(self):
         # initialize robot movement parameters
-        Move.ticks_until_astar_recalc = 30
+        Move.ticks_until_astar_recalc = 25
         delta = 40  # offset of graph points from wall corners
         # delta = ((((Robot.width / 2) ** 2) + ((Robot.height / 2) ** 2))) ** .5 + 1 #radius of robot + 1 (divide by 2 is deliberate)
 
@@ -119,7 +119,7 @@ class RobomasterEnv(gym.Env):
         for i in range(len(self.network_points)):
             for j in range(i + 1, len(self.network_points)):
                 p_i, p_j = self.network_points[i], self.network_points[j]
-                if p_i.dis(p_j) <= 250 and self.direct_reachable_forward(p_i, p_j, my_robot, True):
+                if p_i.dis(p_j) <= 250 and self.direct_reachable_forward(p_i, p_j, my_robot, ignore_robots=True):
                     self.network_edges.append((p_i, p_j))
                     G.add_edge(p_i.id, p_j.id, weight=p_i.dis(p_j))
 
@@ -192,7 +192,7 @@ class RobomasterEnv(gym.Env):
         plates = []
         for r in self.characters['robots']:
             plates += r.get_armor()
-        return self.characters['obstacles'] + plates + self.characters['robots']
+        return plates + self.characters['robots'] + self.characters['obstacles']
 
     def impermissibles(self, robot):
         return list(filter(lambda r: not r == robot, self.characters['robots'])) \
@@ -248,7 +248,7 @@ class RobomasterEnv(gym.Env):
             return "DRAW"
 
     # Moves the game 1 timestep defined by self.tau
-    def step(self):
+    def step(self, executor):
 
         winner = self.has_winner()
         if winner:
@@ -262,12 +262,16 @@ class RobomasterEnv(gym.Env):
 
         self.game_time += self.tau
 
-        if int(self.game_time) % 30 == 0:
+        if int(self.game_time) % 30 == 0 and self.game_time - int(self.game_time) < self.tau:
             for z in self.defense_buff_zones + self.loading_zones:
                 z.reset()
 
-        for char in self.actables():
+
+        def char_act(char):
             char.act()
+
+        for char in self.actables():
+            executor.submit(char_act, char)
 
         self.state = self.generate_state()
         if self.rendering:
@@ -350,6 +354,18 @@ class RobomasterEnv(gym.Env):
                     continue
                 return block
         return False
+
+    def return_blockers(self, seg, ignore=[], obj=None):
+        blockers = self.unpenetrables()
+        retval = []
+        if obj and obj.type == "ROBOT":
+            blockers = self.impermissibles(obj)
+        for block in blockers:
+            if block.blocks(seg) and not block in ignore:
+                if block.type == "ARMOR" and block.master in ignore:
+                    continue
+                retval.append(block)
+        return retval
 
     def is_legal(self, point):
         return point.x >= 0 and point.x <= self.width and point.y >= 0 and point.y <= self.height

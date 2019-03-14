@@ -618,13 +618,34 @@ class Robot(Rectangle):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
 
+	def get_gun_base(self):
+		return self.center.move_seg_by_angle(self.angle, self.width / 4).point_to
+
 	def fire_line(self):
-		return self.get_gun().center.move_seg_by_angle(self.angle + self.gun_angle, self.range)
+		return self.get_gun_base().move_seg_by_angle(self.angle + self.gun_angle, self.range)
 
 	def aimed_at_enemy(self):
-		line_block = self.env.is_blocked(self.fire_line(), [self])
-		return line_block and (line_block.type == "ROBOT" and not (self.team is line_block.team) or \
-		    line_block.type == "ARMOR" and not (self.team is line_block.master.team))
+		line_block = self.env.return_blockers(self.fire_line(), [self])
+		enemy_dis, obs_dis = 9999, 9999
+		if line_block:
+			for blocker in line_block:
+				curr_dis = self.center.dis(blocker.center)
+				if blocker.type == "ROBOT":
+					if blocker.team is self.team:
+						obs_dis = min(obs_dis, curr_dis)
+					else:
+						enemy_dis = min(enemy_dis, curr_dis)
+				elif blocker.type == "ARMOR":
+					if blocker.master.team is self.team:
+						obs_dis = min(obs_dis, curr_dis)
+					else:
+						enemy_dis = min(enemy_dis, curr_dis)
+				else:
+					obs_dis = min(obs_dis, curr_dis)
+		return enemy_dis < obs_dis
+
+		# return line_block and (line_block.type == "ROBOT" and not (self.team is line_block.team) or \
+		#     line_block.type == "ARMOR" and not (self.team is line_block.master.team))
 
 	def get_armor(self):
 		return [Armor(Rectangle.by_center(self.vertices[i].midpoint(self.vertices[(i + 1) % 4]), \
