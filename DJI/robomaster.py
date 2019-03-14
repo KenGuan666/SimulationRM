@@ -51,16 +51,22 @@ class RobomasterEnv(gym.Env):
         self.my_team, self.enemy_team = BLUE, RED
 
         # Initialize robots
-        # my_robot = DummyRobot(self, BLUE, Point(780, 100), 180)
-        my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
-        my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
-        enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0)
-        enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
-        # enemy_robot = JoystickRobot(self, RED, Point(50, 450), 0)
-        # my_robot.load(40)
+        # my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
+        my_robot = StratChooser(self, BLUE, Point(780, 100), 135)
+        enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0, ignore_angle=True)
+
+        # bugged spot with closest point unreachable
+        # my_robot = AttackRobot(self, BLUE, Point(365.917389, 355.968720), 312.700132)
+        # enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(419.475727, 80.330731), 132.700132, ignore_angle=True)
+
+        my_robot.load(40)
         enemy_robot.load(40)
         self.characters['robots'] = [my_robot, enemy_robot]
-        self.characters['robots'] += [my_robot2, enemy_robot2]
+
+        # my_robot2 = AttackRobot(self, BLUE, Point(20, 100), 0)
+        # enemy_robot2 = AttackRobot(self, RED, Point(780, 450), 180)
+        # self.characters['robots'] += [my_robot2, enemy_robot2]
+
         for i in range(len(self.characters['robots'])):
             self.characters['robots'][i].id = i
 
@@ -334,9 +340,10 @@ class RobomasterEnv(gym.Env):
     # Returns the object blocking the line segment
     # Returns False if it's not blocked
     def is_blocked(self, seg, ignore=[], obj=None):
-        blockers = self.unpenetrables()
         if obj and obj.type == "ROBOT":
             blockers = self.impermissibles(obj)
+        else:
+            blockers = self.unpenetrables()
         for block in blockers:
             if block.blocks(seg) and not block in ignore:
                 if block.type == "ARMOR" and block.master in ignore:

@@ -156,7 +156,7 @@ class AutoAim(Action):
     def resolve(self, robot):
         goal, curr = robot.angle_to(self.target.center) - robot.angle, robot.gun_angle
         if float_equals(goal, curr):
-        	return
+            return
         diff = goal - curr
         if diff > 180:
             diff -= 360
@@ -234,19 +234,24 @@ class Move(Action):
     ticks_until_astar_recalc = None #Should get overridden in robotmaster.py
 
     def __init__(self, target_point):
-        self.target_point = target_point # If target_point is None, then do nothing
+        # target_points is a list of points we want to navigate to, ordered by priority
+        # if 1st point is unreachable, move to 2nd and so on and on
+        self.target_points = [target_point] if target_point else []# If target_point is None, then do nothing
+
         self.counter_max = Move.ticks_until_astar_recalc
         self.counter = Move.ticks_until_astar_recalc
         self.path = None
 
-    def set_target_point(self, target_point, recompute, force_compute=False):
+    def set_target_point(self, target_point, recompute, force_compute=False, backups = []):
 
-        if force_compute or (recompute and not self.target_point.float_equals(target_point)):
+        if force_compute or \
+                (recompute and len(self.target_points) > 0 and not self.target_points[0].float_equals(target_point)):
             self.path = None
-        self.target_point = target_point
+        self.target_points = [target_point] if target_point else []
+        self.target_points += backups
 
     def resolve(self, robot):
-        if self.target_point is None or robot.center.float_equals(self.target_point):
+        if len(self.target_points) == 0 or robot.center.float_equals(self.target_points[0]):
             self.path = None
             return
 
@@ -254,11 +259,15 @@ class Move(Action):
         self.counter += 1
         if self.counter >= self.counter_max:
             self.counter = 0
-            self.path = full_astar(self.target_point, robot)
+            self.path = self.compute_path(robot)
 
         # init path
         if not self.path:
-            self.path = full_astar(self.target_point, robot)
+            self.path = self.compute_path(robot)
+
+        if self.path == None:
+            return
+
         #update waypoint
         if robot.center.float_equals(self.path[0]):
             if len(self.path) > 2 or robot.env.direct_reachable_curr_angle(robot.center, self.path[-1], robot):
@@ -269,12 +278,17 @@ class Move(Action):
             return MoveAtAngle(0, min(robot.center.dis(self.path[0]),
                    robot.max_speed), robot.angle_to(self.path[0])).resolve(robot)
 
-        # WAITING ON BETTER PATH ALGORITHM
+    def compute_path(self, robot):
+        for pt in self.target_points:
+            path = full_astar(pt, robot)
+            if path is not None:
+                return path
 
 
+# WAITING ON BETTER PATH ALGORITHM
 ## PATH ALGORITHM GOES HERE FOR NOW
 # returns path
-def full_astar(to, robot):
+def full_astar(to, robot, closest_point_try= False):
     env = robot.env
     master = env.master_network
     removed_weighted_edges = []
@@ -306,7 +320,11 @@ def full_astar(to, robot):
     # for all nodes visible to robot.center and to-point, add an edge + weight
     for p in env.network_points:
         if p.dis(robot.center) <= 250 and env.direct_reachable_curr_angle(robot.center, p, robot): #TODO make parameter for start/goal visibility
-            master.add_edge(fr_id, p.id, weight=robot.center.dis(p))
+            if not robot.center.float_equals(p):
+                master.add_edge(fr_id, p.id, weight=robot.center.dis(p))
+            else:
+                removed_weighted_edges.extend([(u,v,master[u][v]['weight']) for u,v in master.edges(p.id)])
+                continue
         dis = p.dis(to)
         if dis and dis < min_dis:
             closest_point, min_dis = p, dis
@@ -333,8 +351,11 @@ def full_astar(to, robot):
         # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
         master.remove_node(fr_id)
         master.remove_node(to_id)
-        if closest_point:
-            return full_astar(closest_point, robot)
+        if closest_point_try:
+            print("CAN'T REACH BOTH THE GOAL AND CLOSEST POINT")
+            return
+        elif closest_point:
+            return full_astar(closest_point, robot, closest_point_try = True)
         return None
 
     # display options

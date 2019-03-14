@@ -1,11 +1,11 @@
+from abc import abstractmethod
+
+import keyboard
+import pygame
+from pyglet.window import key
 
 from Objects import *
-from utils import *
 from action import *
-from pyglet.window import key
-import keyboard
-import pyglet
-import pygame
 
 """
 All strategies shall implement the abstract class Strategy
@@ -18,9 +18,12 @@ They use the CLASS OBJECT for operations
 class Strategy:
 
     def __init__(self):
-        self.move = Move(None) #None means there is no where to move to, .resolve will do nothing
+        self.move = Move(None) #None means there is no where  move to, .resolve will do nothing
+        self.auto_aim = True
+        self.auto_shoot = True
+        self.auto_rotate = True
 
-    def move_to(self, target_point, recompute, force_compute = False):
+    def move_to(self, target_point, recompute, force_compute = False, backups = []):
         """
         :param target_point: point to move to
         :param recompute: whether or not to immediately recalculate A* IF target_point changes,
@@ -28,7 +31,10 @@ class Strategy:
                             true && target changes-> find new path (does nothing if target_point is null)
         :param force_compute: if true, always recompute path, even if target_point is the same
         """
-        self.move.set_target_point(target_point, recompute, force_compute=force_compute)
+        self.move.set_target_point(target_point, recompute, force_compute=force_compute, backups=backups)
+
+    def force_path_recompute(self):
+        self.move.path = None
 
     def stay_put(self):
         """
@@ -47,16 +53,25 @@ class Strategy:
     def decide_with_default(self, robot):
         action = self.decide(robot)
         enemy = robot.get_enemy()
-
+        default = []
         #AUTO ROTATE
-        default = [AutoAim(enemy), AutoShootingControl(), AutoRotate(enemy, degrees_offset=45)]
+        if self.auto_aim:
+            default.append(AutoAim(enemy))
+        if self.auto_shoot:
+            default.append(AutoShootingControl())
+        if self.auto_rotate:
+            default.append(AutoRotate(enemy, degrees_offset=45))
         if robot.shooting == True:
-            default += [Fire()]
+            default.append(Fire())
         if action:
             if type(action) == list:
                 return default + action
             return default + [action]
         return default + [self.move]
+
+    @abstractmethod
+    def decide(self, robot):
+        pass
 
     @classmethod
     def name(cls):
@@ -80,6 +95,7 @@ class DoNothing(Strategy):
 class BreakLine(Strategy):
 
     def __init__(self):
+        super().__init__()
         self.additional_key_points = []
 
     def decide(self, robot):
@@ -101,12 +117,8 @@ class BreakLine(Strategy):
 class SpinAndFire(Strategy):
 
     def decide(self, robot):
-        # line_block = robot.env.is_blocked(robot.fire_line(), [robot])
-        # if line_block:
-        #     if line_block.type == "ROBOT" and not (robot.team is line_block.team) or \
-        #        line_block.type == "ARMOR" and not (robot.team is line_block.master.team):
-        #         return []
-        pass
+        self.auto_rotate = False
+        return RotateRight(robot.max_rotation_speed)
 
 
 class Chase(Strategy):
@@ -119,6 +131,8 @@ class Chase(Strategy):
         self.target_robot = target_robot
 
     def decide(self, robot):
+        if self.target_robot is None:
+            self.choose_target_robot(robot.get_enemy())
         if robot.center.dis(self.target_robot.center) > robot.range or \
            robot.env.is_blocked(LineSegment(robot.center, self.target_robot.center), ignore=[robot, self.target_robot]):
             self.move_to(self.target_robot.center, False) # don't need an immediate recompute for chasing
@@ -127,6 +141,27 @@ class Chase(Strategy):
             self.stay_put()
             return None
         return [Aim(self.target_robot.center)]
+
+
+class OnlyReload(Strategy):
+
+    def decide(self, robot):
+        loader = robot.team.loading_zone
+        if loader.aligned(robot):
+            if loader.loading():
+                return None
+            if robot.bullet < robot.bullet_capacity and loader.fills > 0:
+                return RefillCommand()
+        else:
+            return self.move_to(loader.loading_point, recompute=False)
+
+
+class GetDefenseBuff(Strategy):
+
+    def decide(self, robot):
+        buff_pts = [z.center for z in robot.env.defense_buff_zones]
+        buff_pts = sorted(buff_pts, key=lambda x: robot.center.dis(x))
+        return self.move_to(buff_pts[0], recompute=True, backups = [buff_pts[1]])
 
 
 class Attack(Strategy):
@@ -150,7 +185,7 @@ class Attack(Strategy):
             # return Chase(enemy).decide(robot)
             return self.substrat_decide(self.chase_sub_strat, robot)
         else:
-            return self.move_to(loader.loading_point, recompute=False)
+            return self.move_to(loader.loading_point, recompute=True)
             # return Move(loader.loading_point)
 
 
@@ -160,14 +195,16 @@ class AttackWithR(Strategy):
 
 class KeyboardPyglet(Strategy):
 
-    def __init__(self, controls):
+    def __init__(self, controls, ignore_angle):
         super().__init__()
         self.controls = controls
-        [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
+        [self.left, self.down, self.right, self.up, self.turnleft, self.turnright,
             self.refill] = controls
         self.shooting = False
+        self.ignore_angle = ignore_angle
 
     def decide(self, robot):
+        board_ang = 90
         if not robot.env.rendering:
             return
         window = robot.env.viewer.window
@@ -186,13 +223,13 @@ class KeyboardPyglet(Strategy):
         if keyboard.is_pressed(self.turnright):
             actions.append(RotateRight(robot.max_rotation_speed))
         if keyboard.is_pressed(self.up):
-            actions.append(MoveForward(robot.angle, robot.max_speed))
+            actions.append(MoveForward(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if keyboard.is_pressed(self.down):
-            actions.append(MoveBackward(robot.angle, robot.max_speed))
+            actions.append(MoveBackward(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if keyboard.is_pressed(self.left):
-            actions.append(MoveLeft(robot.angle, robot.max_speed))
+            actions.append(MoveLeft(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if keyboard.is_pressed(self.right):
-            actions.append(MoveRight(robot.angle, robot.max_speed))
+            actions.append(MoveRight(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         return actions
 
 

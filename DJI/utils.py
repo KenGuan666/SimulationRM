@@ -29,7 +29,7 @@ class Point:
 		return to_degree(to.diff(self).angle_radian())
 
 	def float_equals(self, other):
-		return float_equals(self.x, other.x) and float_equals(self.y, other.y)
+		return other is not None and float_equals(self.x, other.x) and float_equals(self.y, other.y)
 
 	def dis(self, to):
 		return math.sqrt((self.x - to.x) ** 2 + (self.y - to.y) ** 2)

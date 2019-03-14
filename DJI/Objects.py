@@ -587,6 +587,8 @@ class Robot(Rectangle):
 	Determine a strategy based on information in self.env
 	"""
 	def get_strategy(self):
+		# print(self.team.name + ": Point(x,y), angle: ",
+		# 	  "Point(%f, %f), %f" % (self.bottom_left.x, self.bottom_left.y, self.angle))
 		return self.default_strat
 
 	"""
@@ -672,25 +674,53 @@ class AttackRobot(Robot):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = Attack()
 
-	# def get_strategy(self):
-	# 	target = self.team.enemy.robots[0]
-	# 	return Attack()
-
 
 class AttackWithRadiusRobot(Robot):
 	pass
+
+
+class StratChooser(Robot):
+
+	strategy_id = 2
+
+	def __init__(self, env, team, bottom_left, angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		# self.controls = "01233456789"
+		self.strat = DoNothing()
+		self.printed_help = False
+
+	def get_strategy(self):
+		strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase]
+		strats = strats[:9]
+		commands = dict([(str(i+1), v) for i,v in enumerate(strats)])
+
+		if keyboard.is_pressed('0'):
+			if not self.printed_help:
+				self.printed_help = True
+				print("0 - print strats")
+				for i in commands:
+					print(i + " - " + commands[i].__name__)
+		else:
+			for i in commands:
+				if keyboard.is_pressed(i):
+					if type(self.strat) != commands[i]:
+						self.printed_help = False
+						print("Switched to " + commands[i].__name__)
+						self.strat = commands[i]()
+					break
+		return self.strat
 
 
 class KeyboardRobot(Robot):
 
 	strategy_id = 2
 
-	def __init__(self, controls, env, team, bottom_left, angle=0):
+	def __init__(self, controls, env, team, bottom_left, angle=0, ignore_angle = False):
 		super().__init__(env, team, bottom_left, angle)
 		self.controls = controls
 		self.pygame_rendering = env.pygame_rendering
 		if env.rendering:
-			self.strat = KeyboardPyglet(self.controls)
+			self.strat = KeyboardPyglet(self.controls, ignore_angle)
 		elif env.pygame_rendering:
 			self.strat = KeyboardPygame(self.controls)
 			env.keyboard_robot = self
@@ -705,6 +735,8 @@ class KeyboardRobot(Robot):
 				self.actions.append(key)
 
 	def get_strategy(self):
+		# print(self.team.name + ": Point(x,y), angle: ",
+		# 	  "Point(%f, %f), %f" % (self.bottom_left.x, self.bottom_left.y, self.angle))
 		if self.pygame_rendering:
 			self.strat.set_instructions(self.actions)
 		return self.strat
