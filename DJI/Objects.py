@@ -687,8 +687,10 @@ class CrazyRobot(Robot):
 		self.default_strat = SpinAndFire()
 
 class PatrolRobot(Robot):
-	def get_strategy(self):
-		return Patrol(0)
+
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = Patrol()
 
 class AttackRobot(Robot):
 
@@ -714,7 +716,7 @@ class StratChooser(Robot):
 		self.printed_help = False
 
 	def get_strategy(self):
-		strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase]
+		strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase, Patrol]
 		strats = strats[:9]
 		commands = dict([(str(i+1), v) for i,v in enumerate(strats)])
 

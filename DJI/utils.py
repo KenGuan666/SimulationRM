@@ -181,7 +181,7 @@ def sign(x):
 	return 0
 
 
-def display_edges(points, env):
+def display_edges(points, env, onetime = True):
 	graph = env.master_network
 	edges = list(graph.edges)
 	# points = env.network_points
@@ -190,7 +190,10 @@ def display_edges(points, env):
 	if env.rendering:
 		for e in edges:
 			edge = rendering.PolyLine([e[0], e[1]], False)
-			env.viewer.add_onetime(edge)
+			if onetime:
+				env.viewer.add_onetime(edge)
+			else:
+				env.viewer.add_geom(edge)
 
 
 def display_path(path, points, to, env):

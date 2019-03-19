@@ -23,7 +23,7 @@ class RobomasterEnv(gym.Env):
     height = 500
     tau = 0.02
     full_time = 300
-    display_visibility_map = 0
+    display_visibility_map = 1
     rendering, pygame_rendering = True, False
     keyboard_robot = False
     joystick_robot = False
@@ -272,6 +272,16 @@ class RobomasterEnv(gym.Env):
 
         for char in self.actables():
             executor.submit(char_act, char)
+
+        #TODO printing for robots
+        for robot in self.characters['robots']:
+            if robot.team.name == "RED":
+                # print(robot.team.name + ": " + str(robot.center))
+                closest_point = min(self.network_points, key=lambda x: robot.center.dis(x))
+                print(robot.team.name + " is closest to: " + str(closest_point))
+                geom = rendering.Circle(closest_point, 5)
+                geom.set_color(0,128,0)
+                self.viewer.add_onetime(geom)
 
         self.state = self.generate_state()
         if self.rendering:
