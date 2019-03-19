@@ -275,7 +275,7 @@ class Move(Action):
             if len(self.path) > 2 or robot.env.direct_reachable_curr_angle(robot.center, self.path[-1], robot):
                 self.path = self.path[1:]
 
-        print(self.path[0])
+        # print(self.path[0])
 
         #move to first waypoint of path
         #  and robot.env.direct_reachable_curr_angle(robot.center, self.path[0], robot)
@@ -284,10 +284,17 @@ class Move(Action):
                    robot.max_speed), robot.angle_to(self.path[0])).resolve(robot)
 
     def compute_path(self, robot):
-        for pt in self.target_points:
-            path = full_astar(pt, robot)
-            if path is not None:
-                return path
+        if len(self.target_points) > 0:
+            path1 = full_astar(self.target_points[0], robot)
+            if path1 is not None and path1[-1].float_equals(self.target_points[0]):
+                return path1
+            for pt in self.target_points[1:]:
+                path = full_astar(pt, robot)
+                if path is not None and path[-1].float_equals(pt):
+                    return path
+            return path1
+
+
 
 
 # WAITING ON BETTER PATH ALGORITHM
@@ -305,13 +312,13 @@ def full_astar(to, robot, closest_point_try= False):
     points = env.network_points + [robot.center, to]
     closest_point, min_dis = None, 9999
 
-    extra_ignore = []
+    extra_ignore = [] #find what points to ignore
     for r in env.characters['robots']:
         if r.center.float_equals(to):
             extra_ignore = [r]
             break
 
-    # remove illegal edges
+    # find illegal edges
     for r in env.characters['robots']:
         if r is robot:
             continue
@@ -348,20 +355,34 @@ def full_astar(to, robot, closest_point_try= False):
             continue
 
     # search for astar path, if path not found, move to the closest point on the graph to the to-point
-    try:
-        path = nx.astar_path(master, fr_id, to_id)
-    except nx.NetworkXNoPath as e:
+    move_to_priority = sorted(list(master.nodes), key=lambda n: points[n].dis(to))
+    path_dict = nx.single_source_dijkstra_path(master, fr_id)
+    for temp_to_id in move_to_priority:
+        if temp_to_id in path_dict:
+            path = path_dict[temp_to_id]
+            break
+    else:
+        print("CAN'T REACH GOAL AND ANYPOINT ON GRAPH")
         master.add_weighted_edges_from(removed_weighted_edges)
-        removed_weighted_edges = []
         # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
         master.remove_node(fr_id)
         master.remove_node(to_id)
-        if closest_point_try:
-            print("CAN'T REACH BOTH THE GOAL AND CLOSEST POINT")
-            return
-        elif closest_point:
-            return full_astar(closest_point, robot, closest_point_try = True)
         return None
+
+    # try:
+    #     path = nx.astar_path(master, fr_id, to_id)
+    # except nx.NetworkXNoPath as e:
+    #     master.add_weighted_edges_from(removed_weighted_edges)
+    #     removed_weighted_edges = []
+    #     # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
+    #     master.remove_node(fr_id)
+    #     master.remove_node(to_id)
+    #     if closest_point_try:
+    #         print("CAN'T REACH BOTH THE GOAL AND CLOSEST POINT")
+    #         return
+    #     elif closest_point:
+    #         return full_astar(closest_point, robot, closest_point_try = True)
+    #     return None
 
     # display options
     # display_edges(points, env) # renders the WHOLE graph

@@ -266,7 +266,6 @@ class RobomasterEnv(gym.Env):
             for z in self.defense_buff_zones + self.loading_zones:
                 z.reset()
 
-
         def char_act(char):
             char.act()
 
