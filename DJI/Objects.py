@@ -6,7 +6,6 @@ import numpy as np
 import math
 import heapq
 import cv2
-import rendering
 import keyboard
 import pygame
 
@@ -743,7 +742,7 @@ class KeyboardRobot(Robot):
 		if env.rendering:
 			self.strat = KeyboardPyglet(self.controls, ignore_angle)
 		elif env.pygame_rendering:
-			self.strat = KeyboardPygame(self.controls)
+			self.strat = KeyboardPygame(self.controls, ignore_angle)
 			env.keyboard_robot = self
 			env.listening = list(controls)
 			self.actions = []

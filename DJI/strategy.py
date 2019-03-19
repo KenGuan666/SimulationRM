@@ -31,7 +31,8 @@ class Strategy:
                             true && target changes-> find new path (does nothing if target_point is null)
         :param force_compute: if true, always recompute path, even if target_point is the same
         """
-        self.move.set_target_point(target_point, recompute, force_compute=force_compute, backups=backups)
+        if target_point:
+            self.move.set_target_point(target_point, recompute, force_compute=force_compute, backups=backups)
 
     def force_path_recompute(self):
         self.move.path = None
@@ -235,12 +236,13 @@ class KeyboardPyglet(Strategy):
 
 class KeyboardPygame(Strategy):
     
-    def __init__(self, controls):
+    def __init__(self, controls, ignore_angle):
         super().__init__()
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
             self.refill] = controls
         self.actions = []
         self.refilling = False
+        self.ignore_angle = ignore_angle
 
     def set_instructions(self, actions):
         self.actions = actions
@@ -248,6 +250,7 @@ class KeyboardPygame(Strategy):
             self.refilling = False
 
     def decide(self, robot):
+        board_ang = 90
         if not self.actions:
             return None
         actions = []
@@ -256,13 +259,13 @@ class KeyboardPygame(Strategy):
         if self.turnright in self.actions:
             actions.append(RotateRight(robot.max_rotation_speed))
         if self.up in self.actions:
-            actions.append(MoveForward(robot.angle, robot.max_speed))
+            actions.append(MoveForward(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.down in self.actions:
-            actions.append(MoveBackward(robot.angle, robot.max_speed))
+            actions.append(MoveBackward(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.left in self.actions:
-            actions.append(MoveLeft(robot.angle, robot.max_speed))
+            actions.append(MoveLeft(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.right in self.actions:
-            actions.append(MoveRight(robot.angle, robot.max_speed))
+            actions.append(MoveRight(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.refill in self.actions:
             if not self.refilling:
                 self.refilling = True

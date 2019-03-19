@@ -1,7 +1,6 @@
 
 from Objects import *
 from utils import *
-import rendering
 import pygame
 import numpy
 import networkx as nx

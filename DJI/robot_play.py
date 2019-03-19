@@ -41,7 +41,8 @@ for i in range(total_rounds):
 	# print(coords)
 	# clock.tick(1)
 	# t2 = float(time.clock())
-	env.step(executor)
+	# env.step(executor)
+	env.step()
 	# print((t2 - t1)/(i + 1))
 
 	# time.sleep(0.01)

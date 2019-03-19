@@ -1,5 +1,4 @@
 import math
-import rendering
 
 """
 Implements a point
