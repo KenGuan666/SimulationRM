@@ -228,7 +228,7 @@ class Zone(UprightRectangle):
 	sidelength = 100
 
 	def __init__(self, bottom_left, team):
-		super().__init__(bottom_left, 100, 100)
+		UprightRectangle.__init__(self, bottom_left, 100, 100)
 		self.team = team
 		self.color = team.dark_color
 		self.render_helper = UprightRectangle(self.bottom_left.move(8, 8), \
@@ -241,10 +241,10 @@ class Zone(UprightRectangle):
 		return True
 
 	def render(self):
-		return super().render() + self.render_helper.render(COLOR_WHITE)
+		return UprightRectangle.render(self) + self.render_helper.render(COLOR_WHITE)
 
 	def pygame_render(self, screen):
-		super().pygame_render(screen)
+		UprightRectangle.pygame_render(self, screen)
 		self.render_helper.pygame_render(screen, PYGAME_COLOR_WHITE)
 
 	def generate_state(self):
@@ -257,7 +257,7 @@ Loading zones that provide 17mm bullets
 class LoadingZone(Zone):
 
 	def __init__(self, bottom_left, team, env):
-		super().__init__(bottom_left, team)
+		Zone.__init__(self, bottom_left, team)
 		team.loading_zone = self
 		self.loading_point = self.center
 		self.env = env
@@ -321,10 +321,10 @@ class LoadingZone(Zone):
 		if self.loading() > 0:
 			self.env.viewer.add_onetime_text("to_load: {0}, loaded: {1}".format(int(self.to_load), int(self.loaded)), \
 			    10, self.center.x, self.center.y)
-		return super().render() + [circle]
+		return Zone.render(self) + [circle]
 	
 	def pygame_render(self, screen):
-		super().pygame_render(screen)
+		Zone.pygame_render(self, screen)
 		pygame.draw.circle(screen, self.color, self.rendering_center, 12)
 		if self.loading() > 0:
 			self.text = pygame.transform.flip(self.env.font.render("to_load: {0}, loaded: {1}".format(int(self.to_load), \
@@ -346,7 +346,7 @@ class DefenseBuffZone(Zone):
 	active = True
 
 	def __init__(self, bottom_left, team, env):
-		super().__init__(bottom_left, team)
+		Zone.__init__(self, bottom_left, team)
 		self.d_helper = Rectangle(self.center.move(0, -15), \
 		    15 * 1.414, 15 * 1.414, 45)
 		team.defense_buff_zone = self
@@ -377,10 +377,10 @@ class DefenseBuffZone(Zone):
 		self.active = True
 
 	def render(self):
-		return super().render() + self.d_helper.render(self.color)
+		return Zone.render(self) + self.d_helper.render(self.color)
 	
 	def pygame_render(self, screen):
-		super().pygame_render(screen)
+		Zone.pygame_render(self, screen)
 		self.d_helper.pygame_render(screen, self.color)
 
 	def generate_state(self):
@@ -460,11 +460,11 @@ class Armor(Rectangle):
 	type = 'ARMOR'
 
 	def __init__(self, rec, robot):
-		super().__init__(rec.bottom_left, rec.width, rec.height, rec.angle)
+		Rectangle.__init__(self, rec.bottom_left, rec.width, rec.height, rec.angle)
 		self.master = robot
 
 	def blocks(self, seg):
-		return super().blocks(seg)
+		return Rectangle.blocks(self, seg)
 
 
 """
@@ -501,7 +501,7 @@ class Robot(Rectangle):
 		self.color = team.color
 		team.add_robot(self)
 		self.defense_buff_timer = 0
-		super().__init__(bottom_left, self.width, self.height, angle)
+		Rectangle.__init__(self, bottom_left, self.width, self.height, angle)
 		# self.heat = 0
 		self.shooting = False
 		self.cooldown = 0
@@ -533,9 +533,9 @@ class Robot(Rectangle):
 				self.health_display.color = COLOR_YELLOW
 			else:
 				self.health_display.color = self.color
-			return super().render() + self.health_display.render() + \
+			return Rectangle.render(self) + self.health_display.render() + \
 			    self.get_gun().render(self.color) + [armor.render()[0] for armor in self.get_armor()]
-		return super().render()
+		return Rectangle.render(self)
 
 	def pygame_render(self, screen):
 		if self.alive():
@@ -545,12 +545,12 @@ class Robot(Rectangle):
 				self.health_display.color = PYGAME_COLOR_YELLOW
 			else:
 				self.health_display.color = self.color
-			super().pygame_render(screen)
+			Rectangle.pygame_render(self, screen)
 			self.health_display.pygame_render(screen)
 			self.get_gun().pygame_render(screen, self.color)
 			for armor in self.get_armor():
 				armor.pygame_render(screen)
-		super().pygame_render(screen)
+		Rectangle.pygame_render(self, screen)
 
 	def alive(self):
 		return self.health > 0
@@ -668,13 +668,13 @@ class Robot(Rectangle):
 class DummyRobot(Robot):
 
 	def __init__(self, env, team, bottom_left,  angle=0):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		self.default_strat = DoNothing()
 
 class DefensiveRobot(Robot):
 
 	def __init__(self, env, team, bottom_left,  angle=0):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		self.default_strat = BreakLine()
 
 class CrazyRobot(Robot):
@@ -682,7 +682,7 @@ class CrazyRobot(Robot):
 	strategy_id = 1
 
 	def __init__(self, env, team, bottom_left,  angle=0):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		self.default_strat = SpinAndFire()
 
 
@@ -691,7 +691,7 @@ class AttackRobot(Robot):
 	strategy_id = 2
 
 	def __init__(self, env, team, bottom_left, angle=0):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		self.default_strat = Attack()
 
 
@@ -704,7 +704,7 @@ class StratChooser(Robot):
 	strategy_id = 2
 
 	def __init__(self, env, team, bottom_left, angle=0):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		# self.controls = "01233456789"
 		self.strat = DoNothing()
 		self.printed_help = False
@@ -736,7 +736,7 @@ class KeyboardRobot(Robot):
 	strategy_id = 2
 
 	def __init__(self, controls, env, team, bottom_left, angle=0, ignore_angle = False):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		self.controls = controls
 		self.pygame_rendering = env.pygame_rendering
 		if env.rendering:
@@ -776,7 +776,7 @@ class JoystickRobot(Robot):
 	type = 'JoystickRobot' 
 
 	def __init__(self, env, team, bottom_left, angle):
-		super().__init__(env, team, bottom_left, angle)
+		Robot.__init__(self, env, team, bottom_left, angle)
 		env.joystick_robot = True
 		pygame.joystick.init()
 		if pygame.joystick.get_count():

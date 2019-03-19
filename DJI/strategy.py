@@ -96,7 +96,7 @@ class DoNothing(Strategy):
 class BreakLine(Strategy):
 
     def __init__(self):
-        super().__init__()
+        Strategy.__init__(self)
         self.additional_key_points = []
 
     def decide(self, robot):
@@ -125,7 +125,7 @@ class SpinAndFire(Strategy):
 class Chase(Strategy):
 
     def __init__(self):
-        super().__init__()
+        Strategy.__init__(self)
         self.target_robot = None
 
     def choose_target_robot(self, target_robot):
@@ -168,7 +168,7 @@ class GetDefenseBuff(Strategy):
 class Attack(Strategy):
 
     def __init__(self):
-        super().__init__()
+        Strategy.__init__(self)
         self.chase_sub_strat = Chase()
         self.set_substrat(self.chase_sub_strat)
         self.chase_sub_strat.move.print_bool = True #TODO REMOVE
@@ -197,7 +197,7 @@ class AttackWithR(Strategy):
 class KeyboardPyglet(Strategy):
 
     def __init__(self, controls, ignore_angle):
-        super().__init__()
+        Strategy.__init__(self)
         self.controls = controls
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright,
             self.refill] = controls
@@ -237,7 +237,7 @@ class KeyboardPyglet(Strategy):
 class KeyboardPygame(Strategy):
     
     def __init__(self, controls, ignore_angle):
-        super().__init__()
+        Strategy.__init__(self)
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
             self.refill] = controls
         self.actions = []

@@ -58,7 +58,7 @@ Contains vector functions for convenience
 class Vector(Point):
 
 	def __init__(self, x, y):
-		super().__init__(x, y)
+		Point.__init__(self, x, y)
 		self.length = self.dis(Point(0, 0))
 
 	def dot(self, other):

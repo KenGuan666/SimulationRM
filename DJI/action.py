@@ -72,7 +72,7 @@ class MoveAtAngle(Translation):
 
     def __init__(self, robot_angle, dis, angle):
         self.angle = angle
-        super().__init__(0, dis)
+        Translation.__init__(self, 0, dis)
 
 
 class Rotate(Action):
