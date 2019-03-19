@@ -28,8 +28,13 @@ class Point:
 			return 90
 		return to_degree(to.diff(self).angle_radian())
 
-	def float_equals(self, other):
-		return float_equals(self.x, other.x) and float_equals(self.y, other.y)
+# <<<<<<< HEAD
+# 	def float_equals(self, other):
+# 		return other is not None and float_equals(self.x, other.x) and float_equals(self.y, other.y)
+# =======
+	def float_equals(self, other, threshold=0.01):
+		return float_equals(self.x, other.x, threshold) and float_equals(self.y, other.y, threshold)
+# >>>>>>> 7370db678b19474d289624ed90348ccbf7ec97bc
 
 	def dis(self, to):
 		return math.sqrt((self.x - to.x) ** 2 + (self.y - to.y) ** 2)
@@ -91,6 +96,8 @@ class LineSegment:
 			self.slope = float('inf')
 		else:
 			self.slope = (point_to.y - point_from.y) / (point_to.x - point_from.x)
+		self.y_diff = (point_to.y - point_from.y)
+		self.x_diff = (point_to.x - point_from.x)
 
 	def y_at(self, x):
 		if self.slope == float('inf'):
@@ -102,17 +109,25 @@ class LineSegment:
 
 class Team:
 
-	def __init__(self, name):
+	def __init__(self, name, pygame_rendering):
 		self.name = name
 		self.robots = []
 		self.enemy = None
 
 		if self.name == "BLUE":
-			self.dark_color = COLOR_DARKBLUE
-			self.color = COLOR_BLUE
+			if pygame_rendering:
+				self.dark_color = PYGAME_COLOR_DARKBLUE
+				self.color = PYGAME_COLOR_BLUE
+			else:
+				self.dark_color = COLOR_DARKBLUE
+				self.color = COLOR_BLUE
 		else:
-			self.dark_color = COLOR_DARKRED
-			self.color = COLOR_RED
+			if pygame_rendering:
+				self.dark_color = PYGAME_COLOR_DARKRED
+				self.color = PYGAME_COLOR_RED
+			else:
+				self.dark_color = COLOR_DARKRED
+				self.color = COLOR_RED
 
 	def add_robot(self, robot):
 		self.robots.append(robot)
@@ -124,19 +139,21 @@ class Team:
 	def total_health(self):
 		return sum([r.health for r in self.robots])
 
-	def set_health_bar(self, rec, viewer):
+	def set_health_bar(self, rec, viewer=None):
 		self.bar = rec
 		if len(self.robots) == 1:
 			self.robots[0].health_bar = rec
-			viewer.add_geom(rendering.PolyLine([p.to_list() for p in rec.vertices], True))
+			if viewer:
+				viewer.add_geom(rendering.PolyLine([p.to_list() for p in rec.vertices], True))
 		else:
 			left_middle = rec.vertices[0].midpoint(rec.vertices[3])
 			self.robots[0].health_bar = type(rec)(rec.vertices[0], \
 			    rec.width, rec.height/2)
 			self.robots[1].health_bar = type(rec)(left_middle, \
 			    rec.width, rec.height/2)
-			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[0].health_bar.vertices], True))
-			viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[1].health_bar.vertices], True))
+			if viewer:
+				viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[0].health_bar.vertices], True))
+				viewer.add_geom(rendering.PolyLine([p.to_list() for p in self.robots[1].health_bar.vertices], True))
 
 	def generate_state(self):
 		state = []
@@ -164,6 +181,28 @@ def sign(x):
 	return 0
 
 
+def display_edges(points, env):
+	graph = env.master_network
+	edges = list(graph.edges)
+	# points = env.network_points
+	edges = [(points[e[0]].to_list(), points[e[1]].to_list()) for e in edges]
+
+	if env.rendering:
+		for e in edges:
+			edge = rendering.PolyLine([e[0], e[1]], False)
+			env.viewer.add_onetime(edge)
+
+
+def display_path(path, points, to, env):
+	for i in range(len(path) - 1):
+		edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
+		edge.set_color(0,128,0)
+		env.viewer.add_onetime(edge)
+	edge = rendering.PolyLine([points[path[len(path) - 1]].to_list(), to.to_list()], False)
+	edge.set_color(0, 128, 0)
+	env.viewer.add_onetime(edge)
+
+
 COLOR_BLUE = (0, 0, 1)
 COLOR_DARKBLUE = (0, 0, 0.5)
 COLOR_RED = (1, 0, 0)
@@ -172,3 +211,10 @@ COLOR_GREEN = (0, 1, 0)
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (1, 1, 1)
 COLOR_YELLOW = (1, 1, 0)
+
+PYGAME_COLOR_WHITE = (255, 255, 255)
+PYGAME_COLOR_RED = (255, 0, 0)
+PYGAME_COLOR_BLUE = (0, 0, 255)
+PYGAME_COLOR_DARKRED = (127, 0, 0)
+PYGAME_COLOR_DARKBLUE = (0, 0, 127)
+PYGAME_COLOR_YELLOW = (255, 255, 0)

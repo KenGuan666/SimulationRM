@@ -2,6 +2,7 @@
 from Objects import *
 from utils import *
 import rendering
+import pygame
 import numpy
 import networkx as nx
 
@@ -30,9 +31,9 @@ class Action:
         pass
 
 
-class Move(Action):
+class Translation(Action):
 
-    steps = 6
+    steps = 2
 
     def __init__(self, robot_angle, dis):
         self.angle += robot_angle
@@ -56,17 +57,23 @@ class Step(Action):
         return Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
 
 
-class MoveForward(Move):
+class MoveForward(Translation):
     angle = 0
 
-class MoveBackward(Move):
+class MoveBackward(Translation):
     angle = 180
 
-class MoveLeft(Move):
+class MoveLeft(Translation):
     angle = 90
 
-class MoveRight(Move):
+class MoveRight(Translation):
     angle = 270
+
+class MoveAtAngle(Translation):
+
+    def __init__(self, robot_angle, dis, angle):
+        self.angle = angle
+        super().__init__(0, dis)
 
 
 class Rotate(Action):
@@ -147,9 +154,9 @@ class AutoAim(Action):
         self.target = target_robot
 
     def resolve(self, robot):
-        goal, curr = robot.angle_to(self.target.center) - robot.angle, robot.gun_angle
+        goal, curr = robot.get_gun_base().angle_to(self.target.center) - robot.angle, robot.gun_angle
         if float_equals(goal, curr):
-        	return
+            return
         diff = goal - curr
         if diff > 180:
             diff -= 360
@@ -199,70 +206,199 @@ class SwitchShootingOff(Action):
 
 class AutoShootingControl(Action):
 
-    def resolve(self, robot):
+    def resolve(self, robot): #TODO resolve bug, sometimes doesn't shoot when it can
         if robot.aimed_at_enemy():
             robot.shooting = True
         else:
             robot.shooting = False
 
+class AutoRotate(Action):
 
-class Move(Action):
-
-    def __init__(self, target_point):
-        self.target_point = target_point
+    def __init__(self, target_robot, degrees_offset=30):
+        self.target = target_robot
+        self.degrees_offset = degrees_offset
 
     def resolve(self, robot):
-        if robot.center.float_equals(self.target_point):
+        ls = LineSegment(robot.center, self.target.center)
+        degrees = (math.degrees(math.atan2(ls.y_diff, ls.x_diff)) + self.degrees_offset) % 360
+        return Rotate(degrees).resolve(robot)
+
+#TODO figure out where to put 'limit' variable -> it controls after how many ticks we recompute the path
+class Move(Action):
+    """
+    IMPORTANT: will remember path computed for MOVE
+    to reset the path computed, either counter must == conter_max
+    OR self.path must be set to None
+    """
+
+    ticks_until_astar_recalc = None #Should get overridden in robotmaster.py
+
+    def __init__(self, target_point):
+        # target_points is a list of points we want to navigate to, ordered by priority
+        # if 1st point is unreachable, move to 2nd and so on and on
+        self.target_points = [target_point] if target_point else []# If target_point is None, then do nothing
+
+        self.counter_max = Move.ticks_until_astar_recalc
+        self.counter = Move.ticks_until_astar_recalc
+        self.path = None
+
+
+    def set_target_point(self, target_point, recompute, force_compute=False, backups = []):
+
+        if force_compute or \
+                (recompute and len(self.target_points) > 0 and not self.target_points[0].float_equals(target_point)):
+            self.path = None
+        self.target_points = [target_point] if target_point else []
+        self.target_points += backups
+
+    def resolve(self, robot):
+        if len(self.target_points) == 0 or robot.center.float_equals(self.target_points[0]):
+            self.path = None
             return
-        if robot.env.direct_reachable_forward(robot.center, self.target_point, robot, True):
-            if float_equals(robot.angle_to(self.target_point), robot.angle):
-                return MoveForward(robot.angle, min(robot.center.dis(self.target_point), \
-                   robot.max_speed)).resolve(robot)
-            return Aim(self.target_point).resolve(robot)
 
-        # WAITING ON BETTER PATH ALGORITHM
-        return astar_ignore_enemy(self.target_point, robot)
+        #check if need to recalc path
+        self.counter += 1
+        if self.counter >= self.counter_max:
+            self.counter = 0
+            self.path = self.compute_path(robot)
+
+        # init path
+        if not self.path:
+            self.path = self.compute_path(robot)
+
+        if self.path == None:
+            return
+
+        #update waypoint
+
+        if robot.center.float_equals(self.path[0]):
+            if len(self.path) > 2 or robot.env.direct_reachable_curr_angle(robot.center, self.path[-1], robot):
+                self.path = self.path[1:]
+
+        # print(self.path[0])
+
+        #move to first waypoint of path
+        #  and robot.env.direct_reachable_curr_angle(robot.center, self.path[0], robot)
+        if (len(self.path) > 0):
+            return MoveAtAngle(0, min(robot.center.dis(self.path[0]),
+                   robot.max_speed), robot.angle_to(self.path[0])).resolve(robot)
+
+    def compute_path(self, robot):
+        if len(self.target_points) > 0:
+            path1 = full_astar(self.target_points[0], robot)
+            if path1 is not None and path1[-1].float_equals(self.target_points[0]):
+                return path1
+            for pt in self.target_points[1:]:
+                path = full_astar(pt, robot)
+                if path is not None and path[-1].float_equals(pt):
+                    return path
+            return path1
 
 
+
+
+# WAITING ON BETTER PATH ALGORITHM
 ## PATH ALGORITHM GOES HERE FOR NOW
-
-def astar_ignore_enemy(to, robot):
+# returns path
+def full_astar(to, robot, closest_point_try= False):
     env = robot.env
-    G = env.network.copy()
+    master = env.master_network
+    removed_weighted_edges = []
     fr_id = len(env.network_points)
     to_id = fr_id + 1
-    G.add_nodes_from([fr_id, fr_id + 1])
-
+    master.add_nodes_from([fr_id, fr_id + 1])
+    # TODO make sure extra_edges are found mathematically not hard coded
+    # master.add_weighted_edges_from([robot.team.extra_weighted_edge])
     points = env.network_points + [robot.center, to]
     closest_point, min_dis = None, 9999
-    # total_edges = []
+
+    extra_ignore = [] #find what points to ignore
+    for r in env.characters['robots']:
+        if r.center.float_equals(to):
+            extra_ignore = [r]
+            break
+
+    # find illegal edges
+    for r in env.characters['robots']:
+        if r is robot:
+            continue
+        points_in_radius = get_network_points(env.network_points, r) #TODO make parameter for illegal edge collision
+        for p_i in points_in_radius:
+            for j_id in list(master.adj[p_i.id]):
+                p_j = points[j_id]
+                if master.has_edge(p_i.id, p_j.id) and not r.blocks_path_curr_angle(p_i, p_j, robot):
+                    removed_weighted_edges.append((p_i.id, p_j.id, master[p_i.id][p_j.id]['weight'])) # save weight
+
+    # for all nodes visible to robot.center and to-point, add an edge + weight
     for p in env.network_points:
-        if env.direct_reachable_forward(robot.center, p, robot):
-            # total_edges.append(LineSegment(robot.center, p))
-            G.add_edge(fr_id, p.id, weight=robot.center.dis(p))
+        if p.dis(robot.center) <= 250 and env.direct_reachable_curr_angle(robot.center, p, robot): #TODO make parameter for start/goal visibility
+            if not robot.center.float_equals(p):
+                master.add_edge(fr_id, p.id, weight=robot.center.dis(p))
+            else:
+                removed_weighted_edges.extend([(u,v,master[u][v]['weight']) for u,v in master.edges(p.id)])
+                continue
         dis = p.dis(to)
-        if dis < min_dis:
+        if dis and dis < min_dis and dis > 10:
             closest_point, min_dis = p, dis
-        if env.direct_reachable_forward(p, to, robot, True):
-            # total_edges.append(LineSegment(p, to))
-            G.add_edge(p.id, to_id, weight=dis)
+        if p.dis(to) <= 250 and env.direct_reachable_curr_angle(p, to, robot, extra_ignore=extra_ignore):
+            master.add_edge(p.id, to_id, weight=dis)
 
-    # total_edges += env.network_edges
-    try:
-        path = nx.astar_path(G, fr_id, to_id)
-    except nx.NetworkXNoPath as e:
-        return Move(closest_point).resolve(robot)
+    # finally checks for a visible edge between robot.center and to-point
+    if env.direct_reachable_curr_angle(robot.center, to, robot, extra_ignore=extra_ignore):
+        master.add_edge(fr_id, to_id, weight=robot.center.dis(to))
 
-    for i in range(len(path) - 1):
-        edge = rendering.PolyLine([points[path[i]].to_list(), points[path[i + 1]].to_list()], False)
-        if env.rendering:
-            env.viewer.add_onetime(edge)
+    # remove illegal edges
+    for e in removed_weighted_edges:
+        try:
+            master.remove_edge(e[0], e[1])
+        except nx.NetworkXError as e:
+            continue
 
-    return Move(points[path[1]]).resolve(robot)
-    # for e in total_edges:
-    #     edge = rendering.PolyLine([e.point_from.to_list(), e.point_to.to_list()], False)
-    #     env.viewer.add_onetime(edge)
+    # search for astar path, if path not found, move to the closest point on the graph to the to-point
+    move_to_priority = sorted(list(master.nodes), key=lambda n: points[n].dis(to))
+    path_dict = nx.single_source_dijkstra_path(master, fr_id)
+    for temp_to_id in move_to_priority:
+        if temp_to_id in path_dict:
+            path = path_dict[temp_to_id]
+            break
+    else:
+        print("CAN'T REACH GOAL AND ANYPOINT ON GRAPH")
+        master.add_weighted_edges_from(removed_weighted_edges)
+        # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
+        master.remove_node(fr_id)
+        master.remove_node(to_id)
+        return None
 
-    # for p in points:
-    #     geom = rendering.Circle(p, 5)
-    #     env.viewer.add_onetime(geom)
+    # try:
+    #     path = nx.astar_path(master, fr_id, to_id)
+    # except nx.NetworkXNoPath as e:
+    #     master.add_weighted_edges_from(removed_weighted_edges)
+    #     removed_weighted_edges = []
+    #     # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
+    #     master.remove_node(fr_id)
+    #     master.remove_node(to_id)
+    #     if closest_point_try:
+    #         print("CAN'T REACH BOTH THE GOAL AND CLOSEST POINT")
+    #         return
+    #     elif closest_point:
+    #         return full_astar(closest_point, robot, closest_point_try = True)
+    #     return None
+
+    # display options
+    # display_edges(points, env) # renders the WHOLE graph
+    if env.rendering:
+        display_path(path, points, to, env) # renders the planned path
+
+    master.add_weighted_edges_from(removed_weighted_edges)
+    # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
+    master.remove_node(fr_id)
+    master.remove_node(to_id)
+    return [points[path[i]] for i in range(1,len(path))] # remove current robot point
+
+
+def get_network_points(points, robot):
+    env = robot.env
+    center = robot.center
+    return [p for p in points if p.dis(center) < 140]
+   
+

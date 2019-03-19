@@ -8,6 +8,7 @@ import heapq
 import cv2
 import rendering
 import keyboard
+import pygame
 
 from utils import *
 from strategy import *
@@ -23,6 +24,9 @@ class Character:
 		pass
 
 	def render(self):
+		pass
+
+	def pygame_render(self, screen):
 		pass
 
 	def reset(self):
@@ -115,8 +119,8 @@ class Rectangle(Character):
 	IT DOESN'T CONSIDER SOME CASES which I don't think are necessary for our app
 	"""
 	def intersects(self, other):
-		if self.contains_any(other.vertices) or other.contains_any(self.vertices):
-			return True
+		# if self.contains_any(other.vertices) or other.contains_any(self.vertices):
+		# 	return True
 		for side in other.sides:
 			if self.blocks(side):
 				return True
@@ -126,6 +130,18 @@ class Rectangle(Character):
 		points = self.project_points([seg.point_from, seg.point_to])
 		helper_upright = UprightRectangle(Point(0, 0), self.width, self.height)
 		return helper_upright.blocks(LineSegment(points[0], points[1]))
+
+	def blocks_path_curr_angle(self, fr, to, robot):
+		if robot.center.float_equals(fr):
+			helper_robot_fr = robot
+		else:
+			helper_robot_fr = Rectangle.by_center(fr, robot.width, robot.height, robot.angle)
+		helper_robot_to = Rectangle.by_center(to, robot.width, robot.height, robot.angle)
+		for i in range(4):
+			seg = LineSegment(helper_robot_fr.vertices[i], helper_robot_to.vertices[i])
+			if self.blocks(seg):
+				return False
+		return True
 
 	def angle_to(self, point):
 		return self.center.angle_to(point)
@@ -137,6 +153,11 @@ class Rectangle(Character):
 			color = self.color
 		rec.set_color(color[0], color[1], color[2])
 		return [rec]
+
+	def pygame_render(self, screen, color=None):
+		if not color:
+			color = self.color
+		pygame.draw.polygon(screen, color, [p.to_list() for p in self.vertices])
 
 
 """
@@ -169,11 +190,20 @@ class UprightRectangle(Rectangle):
 		   (point_from.y < self.bottom and point_to.y < self.bottom) or \
 		   (point_from.y > self.top and point_to.y > self.top):
 		   return False
-
+		if point_from.x == point_to.x and \
+			((point_from.y > self.top and point_to.y < self.top) or \
+			(point_from.y < self.top and point_to.y > self.top)):
+			return True
+		
 		left_y, right_y = seg.y_at(self.left), seg.y_at(self.right)
 
 		return not (left_y > self.top and right_y > self.top) and \
 		       not (left_y < self.bottom and right_y < self.bottom)
+
+	def pygame_render(self, screen, color=None):
+		if not color:
+			color = self.color
+		pygame.draw.rect(screen, color, [self.left, self.bottom, self.width, self.height])
 
 """
 Impermissible and inpenetrable obstacles are described by class Obstacle
@@ -202,6 +232,8 @@ class Zone(UprightRectangle):
 		super().__init__(bottom_left, 100, 100)
 		self.team = team
 		self.color = team.dark_color
+		self.render_helper = UprightRectangle(self.bottom_left.move(8, 8), \
+		    self.width - 16, self.height - 16)
 
 	def penetrable(self):
 		return True
@@ -210,8 +242,11 @@ class Zone(UprightRectangle):
 		return True
 
 	def render(self):
-		return super().render() + Rectangle(self.bottom_left.move(8, 8), \
-		    self.width - 16, self.height - 16).render(COLOR_WHITE)
+		return super().render() + self.render_helper.render(COLOR_WHITE)
+
+	def pygame_render(self, screen):
+		super().pygame_render(screen)
+		self.render_helper.pygame_render(screen, PYGAME_COLOR_WHITE)
 
 	def generate_state(self):
 		return []
@@ -229,9 +264,11 @@ class LoadingZone(Zone):
 		self.env = env
 		self.loaded = 0
 		self.to_load = 0
+		self.rendering_center = [int(x) for x in self.center.to_list()]
+			
 
 	fills = 2
-	tolerance_radius = 3
+	tolerance_radius = 10
 	load_speed = 20 # per sec
 
 	"""
@@ -286,6 +323,15 @@ class LoadingZone(Zone):
 			self.env.viewer.add_onetime_text("to_load: {0}, loaded: {1}".format(int(self.to_load), int(self.loaded)), \
 			    10, self.center.x, self.center.y)
 		return super().render() + [circle]
+	
+	def pygame_render(self, screen):
+		super().pygame_render(screen)
+		pygame.draw.circle(screen, self.color, self.rendering_center, 12)
+		if self.loading() > 0:
+			self.text = pygame.transform.flip(self.env.font.render("to_load: {0}, loaded: {1}".format(int(self.to_load), \
+				int(self.loaded)), False, COLOR_BLACK), False, True)
+		else:
+			self.text = None
 
 	def generate_state(self):
 		return [self.fills, self.to_load, self.loaded]
@@ -333,6 +379,10 @@ class DefenseBuffZone(Zone):
 
 	def render(self):
 		return super().render() + self.d_helper.render(self.color)
+	
+	def pygame_render(self, screen):
+		super().pygame_render(screen)
+		self.d_helper.pygame_render(screen, self.color)
 
 	def generate_state(self):
 		active_flag = 0
@@ -342,14 +392,13 @@ class DefenseBuffZone(Zone):
 
 
 class StartingZone(Zone):
-
 	pass
 
 
 """
 Describes a bullet. Currently modeled as having constant speed and no volume
 """
-class Bullet:
+class Bullet(Character):
 
 	damage = 50
 
@@ -400,6 +449,9 @@ class Bullet:
 	def render(self):
 		return [rendering.Circle(self.point, 2)]
 
+	def pygame_render(self, screen):
+		pygame.draw.circle(screen, COLOR_BLACK, [int(x) for x in self.point.to_list()], 2)
+
 	def generate_state(self):
 		return [self.point.x, self.point.y, self.dir, self.master.id]
 
@@ -418,7 +470,6 @@ class Armor(Rectangle):
 
 """
 The robot object -
-Currently modeled as a Rectangle object by assumption that gun has negligible chance of blocking a bullet
 
 To modify strategy, extend the class and override the `get_strategy` method
 """
@@ -459,6 +510,9 @@ class Robot(Rectangle):
 		self.preset_action = None
 		self.preset_timer = 0
 
+		# strategy to choose
+		self.default_strat = None
+
 	def init_from_state(state, env, team):
 		robot_type = strats[state[9]]
 		self = robot_type(env, team, Point(state[0], state[1]), state[2])
@@ -484,6 +538,21 @@ class Robot(Rectangle):
 			    self.get_gun().render(self.color) + [armor.render()[0] for armor in self.get_armor()]
 		return super().render()
 
+	def pygame_render(self, screen):
+		if self.alive():
+			self.health_display = UprightRectangle(self.health_bar.bottom_left.move(0, 1), \
+			    self.health_bar.width - 1, self.health / Robot.health * (self.health_bar.height - 1))
+			if self.has_defense_buff():
+				self.health_display.color = PYGAME_COLOR_YELLOW
+			else:
+				self.health_display.color = self.color
+			super().pygame_render(screen)
+			self.health_display.pygame_render(screen)
+			self.get_gun().pygame_render(screen, self.color)
+			for armor in self.get_armor():
+				armor.pygame_render(screen)
+		super().pygame_render(screen)
+
 	def alive(self):
 		return self.health > 0
 
@@ -496,17 +565,31 @@ class Robot(Rectangle):
 	def add_defense_buff(self, time):
 		self.defense_buff_timer = time
 
+	"""
+	Returns the enemy that is the closest, visble enemy
+	"""
 	def get_enemy(self):
 		enemy = self.team.enemy
-		if enemy.robots[0].health == 0:
-			return enemy.robots[1]
-		return enemy.robots[0]
+		robots = enemy.robots
+		visible_robots = list(filter(lambda enemy: not self.env.is_blocked(LineSegment(self.center, enemy.center), [self, enemy]), robots))
+		
+		if visible_robots:
+			robots = sorted(visible_robots, key=lambda enemy: self.center.dis(enemy.center))
+		else:
+			robots = sorted(robots, key=lambda enemy: self.center.dis(enemy.center))
+
+		if robots[0].health <= 0 and len(robots) > 1:
+			return robots[1]
+
+		return robots[0]
 
 	"""
 	Determine a strategy based on information in self.env
 	"""
 	def get_strategy(self):
-		pass
+		# print(self.team.name + ": Point(x,y), angle: ",
+		# 	  "Point(%f, %f), %f" % (self.bottom_left.x, self.bottom_left.y, self.angle))
+		return self.default_strat
 
 	"""
 	The function evoked by Environment each turn
@@ -535,13 +618,34 @@ class Robot(Rectangle):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
 
+	def get_gun_base(self):
+		return self.center.move_seg_by_angle(self.angle, self.width / 4).point_to
+
 	def fire_line(self):
-		return self.get_gun().center.move_seg_by_angle(self.angle + self.gun_angle, self.range)
+		return self.get_gun_base().move_seg_by_angle(self.angle + self.gun_angle, self.range)
 
 	def aimed_at_enemy(self):
-		line_block = self.env.is_blocked(self.fire_line(), [self])
-		return line_block and (line_block.type == "ROBOT" and not (self.team is line_block.team) or \
-		    line_block.type == "ARMOR" and not (self.team is line_block.master.team))
+		line_block = self.env.return_blockers(self.fire_line(), [self])
+		enemy_dis, obs_dis = 9999, 9999
+		if line_block:
+			for blocker in line_block:
+				curr_dis = self.center.dis(blocker.center)
+				if blocker.type == "ROBOT":
+					if blocker.team is self.team:
+						obs_dis = min(obs_dis, curr_dis)
+					else:
+						enemy_dis = min(enemy_dis, curr_dis)
+				elif blocker.type == "ARMOR":
+					if blocker.master.team is self.team:
+						obs_dis = min(obs_dis, curr_dis)
+					else:
+						enemy_dis = min(enemy_dis, curr_dis)
+				else:
+					obs_dis = min(obs_dis, curr_dis)
+		return enemy_dis < obs_dis
+
+		# return line_block and (line_block.type == "ROBOT" and not (self.team is line_block.team) or \
+		#     line_block.type == "ARMOR" and not (self.team is line_block.master.team))
 
 	def get_armor(self):
 		return [Armor(Rectangle.by_center(self.vertices[i].midpoint(self.vertices[(i + 1) % 4]), \
@@ -564,16 +668,23 @@ class Robot(Rectangle):
 
 class DummyRobot(Robot):
 
-	def get_strategy(self):
-		return DoNothing()
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = DoNothing()
 
+class DefensiveRobot(Robot):
+
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = BreakLine()
 
 class CrazyRobot(Robot):
 
 	strategy_id = 1
 
-	def get_strategy(self):
-		return SpinAndFire()
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = SpinAndFire()
 
 class PatrolRobot(Robot):
 	def get_strategy(self):
@@ -583,25 +694,76 @@ class AttackRobot(Robot):
 
 	strategy_id = 2
 
-	def get_strategy(self):
-		target = self.team.enemy.robots[0]
-		return Attack()
+	def __init__(self, env, team, bottom_left, angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.default_strat = Attack()
 
 
 class AttackWithRadiusRobot(Robot):
 	pass
 
 
-class ManualControlRobot(Robot):
+class StratChooser(Robot):
 
 	strategy_id = 2
 
-	def __init__(self, controls, env, team, bottom_left, angle=0):
+	def __init__(self, env, team, bottom_left, angle=0):
 		super().__init__(env, team, bottom_left, angle)
-		self.controls = controls
+		# self.controls = "01233456789"
+		self.strat = DoNothing()
+		self.printed_help = False
 
 	def get_strategy(self):
-		return Manual(self.controls)
+		strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase]
+		strats = strats[:9]
+		commands = dict([(str(i+1), v) for i,v in enumerate(strats)])
+
+		if keyboard.is_pressed('0'):
+			if not self.printed_help:
+				self.printed_help = True
+				print("0 - print strats")
+				for i in commands:
+					print(i + " - " + commands[i].__name__)
+		else:
+			for i in commands:
+				if keyboard.is_pressed(i):
+					if type(self.strat) != commands[i]:
+						self.printed_help = False
+						print("Switched to " + commands[i].__name__)
+						self.strat = commands[i]()
+					break
+		return self.strat
+
+
+class KeyboardRobot(Robot):
+
+	strategy_id = 2
+
+	def __init__(self, controls, env, team, bottom_left, angle=0, ignore_angle = False):
+		super().__init__(env, team, bottom_left, angle)
+		self.controls = controls
+		self.pygame_rendering = env.pygame_rendering
+		if env.rendering:
+			self.strat = KeyboardPyglet(self.controls, ignore_angle)
+		elif env.pygame_rendering:
+			self.strat = KeyboardPygame(self.controls)
+			env.keyboard_robot = self
+			env.listening = list(controls)
+			self.actions = []
+
+	def handle_key(self, key):
+		if key in self.controls:
+			if key in self.actions:
+				self.actions.remove(key)
+			else:
+				self.actions.append(key)
+
+	def get_strategy(self):
+		# print(self.team.name + ": Point(x,y), angle: ",
+		# 	  "Point(%f, %f), %f" % (self.bottom_left.x, self.bottom_left.y, self.angle))
+		if self.pygame_rendering:
+			self.strat.set_instructions(self.actions)
+		return self.strat
 
 
 class TrainingRobot(Robot):
@@ -613,5 +775,22 @@ class TrainingRobot(Robot):
 		return self.strat
 
 
+class JoystickRobot(Robot):
 
-strats = [DummyRobot, CrazyRobot, AttackRobot]
+	type = 'JoystickRobot' 
+
+	def __init__(self, env, team, bottom_left, angle):
+		super().__init__(env, team, bottom_left, angle)
+		env.joystick_robot = True
+		pygame.joystick.init()
+		if pygame.joystick.get_count():
+			self.strat = Joystick()	
+		else:
+			self.strat = DoNothing() 
+
+	def get_strategy(self):
+		return self.strat
+
+
+
+strats = [DummyRobot, CrazyRobot, AttackRobot, DefensiveRobot]
