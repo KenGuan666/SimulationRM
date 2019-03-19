@@ -577,8 +577,8 @@ class Robot(Rectangle):
 			robots = sorted(visible_robots, key=lambda enemy: self.center.dis(enemy.center))
 		else:
 			robots = sorted(robots, key=lambda enemy: self.center.dis(enemy.center))
-		
-		if robots[0].health == 0:
+
+		if robots[0].health <= 0 and len(robots) > 1:
 			return robots[1]
 
 		return robots[0]
