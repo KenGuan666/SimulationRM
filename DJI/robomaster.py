@@ -17,6 +17,7 @@ import cv2
 
 
 class RobomasterEnv(gym.Env):
+
     # Defining course dimensions
     width = 800
     height = 500

@@ -686,6 +686,9 @@ class CrazyRobot(Robot):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = SpinAndFire()
 
+class PatrolRobot(Robot):
+	def get_strategy(self):
+		return Patrol(0)
 
 class AttackRobot(Robot):
 
