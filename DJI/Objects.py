@@ -49,7 +49,7 @@ class Rectangle(Character):
 		self.sides = self.get_sides()
 		self.center = self.get_center()
 
-	@staticmethod
+        @staticmethod
         def by_center(center, width, height, angle=0):
 		helper_rec = Rectangle(center, width / 2, height / 2, angle + 180)
 		return Rectangle(helper_rec.vertices[2], width, height, angle)
