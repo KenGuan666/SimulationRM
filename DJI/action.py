@@ -1,4 +1,4 @@
-
+import Objects
 from Objects import *
 from utils import *
 import pygame
@@ -53,7 +53,7 @@ class Step(Action):
         self.dy = dy
 
     def simple_resolve(self, robot):
-        return Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
+        return Objects.Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
 
 
 class MoveForward(Translation):
@@ -110,7 +110,7 @@ class RotateLeft(Action):
         self.angle = angle
 
     def simple_resolve(self, robot):
-        return Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle + self.angle)
+        return Objects.Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle + self.angle)
 
 
 class RotateRight(Action):
@@ -119,7 +119,7 @@ class RotateRight(Action):
         self.angle = angle
 
     def simple_resolve(self, robot):
-        return Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle - self.angle)
+        return Objects.Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle - self.angle)
 
 
 class RefillCommand(Action):
