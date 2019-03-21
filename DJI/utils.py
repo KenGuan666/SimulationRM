@@ -164,7 +164,7 @@ class Team:
 		return state
 
 def to_radian(deg):
-	return deg / 180 * math.pi
+	return deg * 1.0 / 180 * math.pi
 
 def to_degree(rad):
 	return rad * 180 / math.pi

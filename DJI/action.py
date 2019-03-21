@@ -185,7 +185,7 @@ class Fire(Action):
     def resolve(self, robot):
         if robot.bullet > 0 and robot.cooldown == 0:
             noise = np.random.normal(0, 3)
-            robot.env.characters['bullets'].append(Bullet(robot.get_gun().center, \
+            robot.env.characters['bullets'].append(Objects.Bullet(robot.get_gun().center, \
                 robot.angle + robot.gun_angle + noise, robot.env, robot))
             robot.bullet -= 1
             robot.cooldown = robot.max_cooldown

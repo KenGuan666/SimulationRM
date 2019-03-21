@@ -44,7 +44,7 @@ class Rectangle(Character):
 		self.width = width
 		self.height = height
 		self.set_angle(angle)
-		self.angle_radian = angle / 180 * math.pi
+		self.angle_radian = to_radian(angle)
 		self.vertices = self.get_vertices()
 		self.sides = self.get_sides()
 		self.center = self.get_center()
