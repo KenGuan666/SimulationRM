@@ -51,8 +51,8 @@ class RobomasterEnv(gym.Env):
 
         # Initialize robots
         # my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
-        my_robot = DummyRobot(self, BLUE, Point(680, 100), 135)
-        enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0, ignore_angle=True)
+        my_robot = DummyRobot(self, BLUE, Point(780, 100), 135)
+        enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 400), 90, ignore_angle=True)
 
         # bugged spot with closest point unreachable
         # my_robot = AttackRobot(self, BLUE, Point(365.917389, 355.968720), 312.700132)
