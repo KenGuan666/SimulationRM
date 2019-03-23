@@ -85,7 +85,7 @@ class Patrol(Strategy):
     lines = [rhombus, top_line, right_line]
 
     def __init__(self):
-        Strategy.__init__()
+        Strategy.__init__(self)
         self.patrol_path = Patrol.rhombus # defualt
         self.pt_num = None
 

@@ -55,7 +55,11 @@ class RobomasterEnv(gym.Env):
         # Initialize robots
         # my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
         my_robot = StratChooser(self, BLUE, Point(780, 100), 135)
-        enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0, ignore_angle=True)
+        enemy_robot = KeyboardRobot("JKLI,./", self, RED, Point(50, 450), 0, ignore_angle=True)
+
+        none_team = Team("none_team", self.pygame_rendering)
+        commands_ent = EnvCommands(self, none_team, Point(50000, 45000), 0)
+        self.commands_ent = commands_ent
 
         # bugged spot with closest point unreachable
         # my_robot = AttackRobot(self, BLUE, Point(365.917389, 355.968720), 312.700132)
@@ -270,6 +274,7 @@ class RobomasterEnv(gym.Env):
 
         for char in self.actables():
             char.act()
+        self.commands_ent.act()
 
         #TODO printing for robots
         # for robot in self.characters['robots']:
@@ -468,6 +473,9 @@ class RobomasterEnv(gym.Env):
         if self.rendering:
             self.stop_rendering()
             self.init_rendering()
+
+    def get_temp_obstacles(self):
+        return self.characters['obstacles'][:len(self.characters['obstacles']) - self.num_temp_obstacles]
 
     def add_temp_obstacles(self, list_of_obstacles):
         """

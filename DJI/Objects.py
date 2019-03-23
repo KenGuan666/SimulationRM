@@ -716,7 +716,7 @@ class CrazyRobot(Robot):
 class PatrolRobot(Robot):
 
     def __init__(self, env, team, bottom_left, angle=0):
-        Robot.__init__(env, team, bottom_left, angle)
+        Robot.__init__(self, env, team, bottom_left, angle)
         self.default_strat = Patrol()
 
 
@@ -744,6 +744,8 @@ class StratChooser(Robot):
         self.strat_class_or_tup, self.strat = None, None
         self.switch_strat(self.strats[0])
         self.printed_help = False
+        self.help_key = '0'
+        self.buttons = "123456789"
 
     def switch_strat(self, tup_or_class):
         self.strat_class_or_tup = tup_or_class
@@ -761,13 +763,14 @@ class StratChooser(Robot):
 
     def get_strategy(self):
         strats = self.strats
-        strats = strats[:9]
-        commands = dict([(str(i + 1), v) for i, v in enumerate(strats)])
+        strats = strats[:len(self.buttons)]
+        # commands = dict([(str(i + 1), v) for i, v in enumerate(strats)])
+        commands = dict([(self.buttons[i], self.strats[i]) for i in range(min(len(self.buttons), len(self.strats)))])
 
-        if keyboard.is_pressed('0'):
+        if keyboard.is_pressed(self.help_key):
             if not self.printed_help:
                 self.printed_help = True
-                print("0 - print strats")
+                print(self.help_key + " - print strats")
                 for i in commands:
                     print(i + " - " + self.strat_get_string(commands[i]))
         else:
@@ -778,6 +781,29 @@ class StratChooser(Robot):
                         print("Switched to " + self.strat_get_string(commands[i]))
                         self.switch_strat(commands[i])
         return self.strat
+
+
+class EnvCommands(StratChooser):
+
+    def __init__(self, env, team, bottom_left, angle=0):
+        Robot.__init__(self, env, team, bottom_left, angle)
+        # self.controls = "01233456789"
+        self.strats = [#DoNothing, BreakLine, Patrol, OnlyReload,
+                       (lambda: env.add_temp_obstacles([(400,250,50,50)]), 'env.add_temp_obstacles([(400,250,50,50)])'),
+                       (lambda: env.add_temp_obstacles([(400,250,50,300)]), 'env.add_temp_obstacles([(400,250,50,50)])'),
+                       ]
+        self.strat_class_or_tup, self.strat = None, None
+        self.printed_help = False
+        self.help_key = 'h'
+        self.buttons = "qwerasdf"
+
+
+    def switch_strat(self, tup_or_class):
+        self.strat_class_or_tup = tup_or_class
+        if type(tup_or_class) == tuple:
+            tup_or_class[0]() # function
+        else:
+            self.strat = tup_or_class() #choooses strat
 
 
 class KeyboardRobot(Robot):

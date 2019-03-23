@@ -325,7 +325,7 @@ class Circle(FilledPolygon):
         for i in range(res):
             ang = 2*math.pi*i / res
             v.append((math.cos(ang)*radius + center.x, math.sin(ang)*radius + center.y))
-        super().__init__(v)
+            FilledPolygon.__init__(self, v)
 
 
 # ================================================================

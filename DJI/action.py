@@ -267,10 +267,10 @@ class Move(Action):
             self.path = self.compute_path(robot)
 
         # init path
-        if not self.path:
+        if self.path is None:
             self.path = self.compute_path(robot)
 
-        if self.path == None:
+        if not self.path:
             return
 
         #update waypoint
@@ -290,7 +290,7 @@ class Move(Action):
     def compute_path(self, robot):
         if len(self.target_points) > 0:
             path1 = full_astar(self.target_points[0], robot)
-            if path1 is not None and path1[-1].float_equals(self.target_points[0]):
+            if path1 and path1[-1].float_equals(self.target_points[0]):
                 return path1
             for pt in self.target_points[1:]:
                 path = full_astar(pt, robot)
@@ -373,23 +373,6 @@ def full_astar(to, robot, closest_point_try= False):
         master.remove_node(to_id)
         return None
 
-    # try:
-    #     path = nx.astar_path(master, fr_id, to_id)
-    # except nx.NetworkXNoPath as e:
-    #     master.add_weighted_edges_from(removed_weighted_edges)
-    #     removed_weighted_edges = []
-    #     # master.remove_edge(robot.team.extra_weighted_edge[0], robot.team.extra_weighted_edge[1]) #TODO
-    #     master.remove_node(fr_id)
-    #     master.remove_node(to_id)
-    #     if closest_point_try:
-    #         print("CAN'T REACH BOTH THE GOAL AND CLOSEST POINT")
-    #         return
-    #     elif closest_point:
-    #         return full_astar(closest_point, robot, closest_point_try = True)
-    #     return None
-
-    # display options
-    # display_edges(points, env) # renders the WHOLE graph
     if env.rendering:
         display_path(path, points, to, env) # renders the planned path
 
