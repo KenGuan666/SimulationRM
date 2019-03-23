@@ -274,14 +274,14 @@ class RobomasterEnv(gym.Env):
             executor.submit(char_act, char)
 
         #TODO printing for robots
-        for robot in self.characters['robots']:
-            if robot.team.name == "RED":
-                # print(robot.team.name + ": " + str(robot.center))
-                closest_point = min(self.network_points, key=lambda x: robot.center.dis(x))
-                print(robot.team.name + " is closest to: " + str(closest_point))
-                geom = rendering.Circle(closest_point, 5)
-                geom.set_color(0,128,0)
-                self.viewer.add_onetime(geom)
+        # for robot in self.characters['robots']:
+        #     if robot.team.name == "RED":
+        #         # print(robot.team.name + ": " + str(robot.center))
+        #         closest_point = min(self.network_points, key=lambda x: robot.center.dis(x))
+        #         print(robot.team.name + " is closest to: " + str(closest_point))
+        #         geom = rendering.Circle(closest_point, 5)
+        #         geom.set_color(0,128,0)
+        #         self.viewer.add_onetime(geom)
 
         self.state = self.generate_state()
         if self.rendering:

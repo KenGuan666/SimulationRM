@@ -672,11 +672,13 @@ class DummyRobot(Robot):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = DoNothing()
 
+
 class DefensiveRobot(Robot):
 
 	def __init__(self, env, team, bottom_left,  angle=0):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = BreakLine()
+
 
 class CrazyRobot(Robot):
 
@@ -686,11 +688,13 @@ class CrazyRobot(Robot):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = SpinAndFire()
 
+
 class PatrolRobot(Robot):
 
 	def __init__(self, env, team, bottom_left,  angle=0):
 		super().__init__(env, team, bottom_left, angle)
 		self.default_strat = Patrol()
+
 
 class AttackRobot(Robot):
 
@@ -707,16 +711,33 @@ class AttackWithRadiusRobot(Robot):
 
 class StratChooser(Robot):
 
-	strategy_id = 2
+	# (void_func, String)
+	# Class
 
 	def __init__(self, env, team, bottom_left, angle=0):
 		super().__init__(env, team, bottom_left, angle)
 		# self.controls = "01233456789"
-		self.strat = DoNothing()
+		self.strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase, Patrol]
+		self.strat_class_or_tup, self.strat = None, None
+		self.switch_strat(self.strats[0])
 		self.printed_help = False
 
+	def switch_strat(self, tup_or_class):
+		self.strat_class_or_tup = tup_or_class
+		if type(tup_or_class) == tuple:
+			self.strat = tup_or_class[0]()
+		else:
+			self.strat = tup_or_class()
+
+	def strat_get_string(self, tup_or_class):
+		""" is either a tuple of function and string OR is just a class"""
+		if type(tup_or_class) == tuple:
+			return tup_or_class[1]
+		else:
+			return tup_or_class.__name__
+
 	def get_strategy(self):
-		strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase, Patrol]
+		strats = self.strats
 		strats = strats[:9]
 		commands = dict([(str(i+1), v) for i,v in enumerate(strats)])
 
@@ -725,15 +746,14 @@ class StratChooser(Robot):
 				self.printed_help = True
 				print("0 - print strats")
 				for i in commands:
-					print(i + " - " + commands[i].__name__)
+					print(i + " - " + self.strat_get_string(commands[i]))
 		else:
 			for i in commands:
 				if keyboard.is_pressed(i):
-					if type(self.strat) != commands[i]:
+					if self.strat_class_or_tup != commands[i]:
 						self.printed_help = False
-						print("Switched to " + commands[i].__name__)
-						self.strat = commands[i]()
-					break
+						print("Switched to " + self.strat_get_string(commands[i]))
+						self.switch_strat(commands[i])
 		return self.strat
 
 
@@ -792,6 +812,67 @@ class JoystickRobot(Robot):
 
 	def get_strategy(self):
 		return self.strat
+
+
+####################################### TWO ROBOT ROBOTS #######################################################
+# Always create a ListenerRobot and feed it into a Master
+# master will queue actions for the Listener to perform
+
+class ListenerRobot(Robot):
+
+	def __init__(self, env, team, bottom_left,  angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.listen_strat = Listen() # never changes strategy
+
+	def get_strategy(self):
+		return self.listen_strat
+
+	# for following method descriptions look at the Listen() strategy under strategy.py
+
+	def set_defaults(self, auto_rotate=None, auto_shoot=None, auto_aim=None):
+		self.listen_strat.set_defaults(auto_rotate=auto_rotate, auto_shoot=auto_shoot, auto_aim=auto_aim)
+
+	def queue_action(self, action):
+		self.listen_strat.queue_action(action)
+
+	# movement:
+
+	def move_to(self, target_point, recompute, force_compute=False, backups=[]):
+		self.listen_strat.move_to(target_point, recompute, force_compute=force_compute, backups=backups)
+
+	def force_path_recompute(self):
+		self.listen_strat.force_path_recompute()
+
+	def stay_put(self):
+		self.listen_strat.stay_put()
+
+	# strat usage:
+	def set_substrat(self, substrat):
+		self.listen_strat.set_substrat(substrat)
+
+	def substrat_decide(self, substrat, robot):
+		self.listen_strat.queue_action(self.listen_strat.substrat_decide(substrat, robot))
+
+
+class RobotMaster(Robot):
+
+	def __init__(self, env, team, bottom_left, listener_robot : ListenerRobot, angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.listener_robot = listener_robot
+		self.listener_robot.set_defaults(True, True, True)
+
+
+class ChooseTwoMaster(RobotMaster):
+
+	def __init__(self, env, team, bottom_left, listener_robot : ListenerRobot, master_strat=None, listener_strat=None, angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		if master_strat is None:
+			master_strat = Attack
+		if listener_robot is None:
+			listener_strat = Attack
+		self.listener_robot = listener_robot
+		self.listener_robot.set_defaults(True, True, True)
+		self.master_strat = ChooseTwo(self.listener_robot, master_strat=master_strat, listener_strat=listener_strat)
 
 
 

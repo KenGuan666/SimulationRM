@@ -336,3 +336,49 @@ class Joystick(Strategy):
         # print(translation_angle)
         # action = MoveAtAngle(robot.angle, robot.max_speed * translation_weight * translation_power, translation_angle)
         return actions
+
+
+############################################### TWO ROBOT STRATEGIES ######################################
+
+class Listen(Strategy):
+
+    def __init__(self):
+        super().__init__()
+        self.queued_actions = None #NOTE THAT QUEUED ACTION SHOULD BE SET BY MASTER ROBOT
+
+    def set_defaults(self, auto_rotate = None, auto_shoot = None, auto_aim = None):
+        if auto_rotate is not None:
+            self.auto_rotate = auto_rotate
+        if auto_shoot is not None:
+            self.auto_shoot = auto_shoot
+        if auto_aim is not None:
+            self.auto_aim = auto_aim
+
+    def queue_action(self, action):
+        self.queued_actions = action
+
+    def decide(self, robot):
+        temp = self.queued_actions #get
+        self.queued_actions = None #pop
+        return temp #return
+
+
+class MasterStrat(Strategy):
+
+    def __init__(self, listener_robot):
+        super().__init__()
+        self.listener_robot = listener_robot
+
+
+class ChooseTwo(MasterStrat):
+
+    def __init__(self, listener_robot: ListenerRobot, master_strat=Attack, listener_strat=Attack):
+        super().__init__(listener_robot)
+        self.master_strat = master_strat()
+        self.listener_strat = listener_strat()
+        self.set_substrat(self.master_strat)
+        self.listener_robot.set_substrat(self.listener_strat)
+
+    def decide(self, robot):
+        self.listener_robot.substrat_decide(self.listener_strat, self.listener_robot)
+        return self.substrat_decide(self.master_strat, robot)
