@@ -27,6 +27,9 @@ class RobomasterEnv(gym.Env):
     joystick_robot = False
 
     def __init__(self):
+        # Ros temp objects
+        self.num_temp_obstacles = 0
+
         # initialize robot movement parameters
         Move.ticks_until_astar_recalc = 25
         delta = 40  # offset of graph points from wall corners
@@ -268,6 +271,17 @@ class RobomasterEnv(gym.Env):
         for char in self.actables():
             char.act()
 
+        # TODO printing for robots
+        for robot in self.characters['robots']:
+            if robot.team.name == "RED":
+                print(robot.team.name + ": low_left = " + str(robot.bottom_left) +
+                      " || high_right = " + str(robot.bottom_left.move(robot.width, robot.height)))
+                # closest_point = min(self.network_points, key=lambda x: robot.center.dis(x))
+                # print(robot.team.name + " is closest to: " + str(closest_point))
+                # geom = rendering.Circle(closest_point, 5)
+                # geom.set_color(0,128,0)
+                # self.viewer.add_onetime(geom)
+
         self.state = self.generate_state()
         if self.rendering:
             self.render()
@@ -447,3 +461,16 @@ class RobomasterEnv(gym.Env):
         if self.rendering:
             self.stop_rendering()
             self.init_rendering()
+
+    def add_temp_obstacles(self, list_of_obstacles):
+        """
+        :param list_of_obstacles:  list of tuples: (x, y, width, height)
+        :return:
+        """
+        # remove temps
+        self.characters['obstacles'] = self.characters['obstacles'][:len(self.characters['obstacles']) - self.num_temp_obstacles]
+
+        # add new temps
+        self.num_temp_obstacles = len(list_of_obstacles)
+        self.characters['obstacles'].extend(
+            [Obstacle(Point(x - (width/2), y - (height/2)), width, height) for x, y, width, height in list_of_obstacles])

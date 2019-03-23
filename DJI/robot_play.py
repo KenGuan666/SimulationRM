@@ -16,7 +16,7 @@ joystick_control = True
 # clock = pygame.time.Clock()
 # pygame.joystick.init()
 
-executor = ThreadPoolExecutor(4)
+# executor = ThreadPoolExecutor(4)
 
 print(total_rounds)
 t1 = float(time.clock())
