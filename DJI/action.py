@@ -244,12 +244,17 @@ class Move(Action):
 
 
     def set_target_point(self, target_point, recompute, force_compute=False, backups = []):
+        new_target_points = [target_point] if target_point else []
+        new_target_points += backups
 
+        # force compute OR (recompute and new input)
         if force_compute or \
-                (recompute and len(self.target_points) > 0 and not self.target_points[0].float_equals(target_point)):
+                recompute and \
+                (len(self.target_points) != len(new_target_points) or
+                not all([self.target_points[i].float_equals(new_target_points[i]) for i in range(len(new_target_points))])):
             self.path = None
-        self.target_points = [target_point] if target_point else []
-        self.target_points += backups
+
+        self.target_points = new_target_points
 
     def resolve(self, robot):
         if len(self.target_points) == 0 or robot.center.float_equals(self.target_points[0]):

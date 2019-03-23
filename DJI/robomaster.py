@@ -23,7 +23,7 @@ class RobomasterEnv(gym.Env):
     height = 500
     tau = 0.02
     full_time = 300
-    display_visibility_map = 1
+    display_visibility_map = 0
     rendering, pygame_rendering = True, False
     keyboard_robot = False
     joystick_robot = False
@@ -249,7 +249,7 @@ class RobomasterEnv(gym.Env):
             return "DRAW"
 
     # Moves the game 1 timestep defined by self.tau
-    def step(self, executor):
+    def step(self):
 
         winner = self.has_winner()
         if winner:
@@ -267,11 +267,8 @@ class RobomasterEnv(gym.Env):
             for z in self.defense_buff_zones + self.loading_zones:
                 z.reset()
 
-        def char_act(char):
-            char.act()
-
         for char in self.actables():
-            executor.submit(char_act, char)
+            char.act()
 
         #TODO printing for robots
         # for robot in self.characters['robots']:
