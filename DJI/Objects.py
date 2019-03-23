@@ -632,12 +632,16 @@ class Robot(Rectangle):
             strategy = self.get_strategy()
             if strategy:
                 action = strategy.decide_with_default(self)
-                if action:
+                if action and (not self.env.ros_control or type(action) == Move):
                     for action_part in action:
                         action_part.resolve(self)
 
     def set_position(self, rec):
         Rectangle.__init__(self, rec.bottom_left, rec.width, rec.height, rec.angle)
+
+    def set_pose_by_center(self, x, y, angle):
+        helper_rec = Rectangle(Point(x, y), self.width / 2, self.height / 2, angle + 180)
+        Rectangle.__init__(self, helper_rec.vertices[2], self.width, self.height, angle)
 
     def get_gun(self):
         bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
@@ -795,6 +799,10 @@ class EnvCommands(StratChooser):
                                                         (400, 190, 50, 50),
                                                         (400, 370, 50, 50),
                                                         (400, 130, 50, 50)]), 'env.add_temp_obstacles([(400,250,50,50)])'),
+            (lambda: env.set_pub_robot_pose(780, 100, 130), "pub 780/100/135"),
+            (lambda: env.set_pub_robot_pose(780, 100, 135), "pub 780/100/135"),
+            (lambda: env.set_enemy_sub_pose(50, 450, 0), "enem 50/540/0"),
+            (lambda: env.set_enemy_sub_pose(50, 450, 5), "enem 50/540/0")
                        ]
         self.strat_class_or_tup, self.strat = None, None
         self.printed_help = False

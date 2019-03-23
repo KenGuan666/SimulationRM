@@ -5,35 +5,36 @@ import cv2
 import pygame
 from robomaster import *
 from utils import *
-env = gym.make('Robomaster-v0').unwrapped
-# env.init_from_state([1058, 1, 408.6590398623192, 415.1700916785658, 68.14982363927881, 90, 73, 0, 0, 0, 1800, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 238.0520211100148, 79.06723937912398, 112.19999999999996, -50.713777541139656, 24, 0, 0, 0, 1650, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 26.799999999999628, 73.19999999999996, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
+env = gym.make('Robomaster-v0').unwrapped
 total_rounds = int(env.full_time / env.tau)
 joystick_control = True
-# clock = pygame.time.Clock()
-# pygame.joystick.init()
+
+#TODO note that yaw translation might be wrong
+
+#transforms x,y ROS -> Sim // given that ROS gives origin top right, Sim gives origin bottom left
+def ros_to_sim_x(x):
+	return 800. - (x * 100.)
+def ros_to_sim_y(y):
+	return 500. - (y * 100.)
+def ros_to_sim_yaw(yaw):
+	return (to_degree(yaw) + 180.) % 360 #given as radian, convert to degree, flip 180
+
+def sim_to_ros_x(x):
+	return (800. - x) / 100.
+def sim_to_ros_y(y):
+	return (500. - y) / 100.
+def sim_to_ros_yaw(yaw):
+	return to_radian((yaw + 180) % 360) #given degree, flip 180, convert to degree
+
+# new options
+env.ros_control = True
 
 for _ in range(total_rounds):
-
-	# for e in pygame.event.get():
-	# 	if e.type == pygame.QUIT:
-	# 		# pygame.quit()
-	# 		env.close()
-
-	# j = pygame.joystick.Joystick(0)
-	# j.init()
-
-	# coords = [j.get_axis(0), j.get_axis(1), j.get_axis(3)]
-
-	# for i in range(len(coords)):
-	# 	if float_equals(coords[i], 0, 0.05):
-	# 		coords[i] = 0
-
-	# env.coords = coords
-	# print(coords)
-	# clock.tick(1)
 	env.step()
-
-	# time.sleep(0.01)
+	if env.ready_to_publish():
+		#publish path logic here
+		path = env.compute_path_to_publish()
+		print(path)
 	if env.finished:
 		break

@@ -262,13 +262,12 @@ class Move(Action):
 
         #check if need to recalc path
         self.counter += 1
-        if self.counter >= self.counter_max:
+        if self.counter >= self.counter_max or self.path is None:
             self.counter = 0
             self.path = self.compute_path(robot)
-
-        # init path
-        if self.path is None:
-            self.path = self.compute_path(robot)
+            if robot.env.publisher_robot == robot:
+                robot.env.path_to_pub = self.path
+                robot.env.ready_to_pub = True
 
         if not self.path:
             return
@@ -279,11 +278,9 @@ class Move(Action):
             if len(self.path) > 2 or robot.env.direct_reachable_curr_angle(robot.center, self.path[-1], robot):
                 self.path = self.path[1:]
 
-        # print(self.path[0])
-
         #move to first waypoint of path
         #  and robot.env.direct_reachable_curr_angle(robot.center, self.path[0], robot)
-        if (len(self.path) > 0):
+        if not robot.env.ros_control and (len(self.path) > 0):
             return MoveAtAngle(0, min(robot.center.dis(self.path[0]),
                    robot.max_speed), robot.angle_to(self.path[0])).resolve(robot)
 

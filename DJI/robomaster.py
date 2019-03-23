@@ -27,8 +27,11 @@ class RobomasterEnv(gym.Env):
     joystick_robot = False
 
     def __init__(self):
-        # Ros temp objects
+        # Ros
         self.num_temp_obstacles = 0
+        self.ready_to_pub = False
+        self.path_to_pub = None
+        self.ros_control = False
 
         # initialize robot movement parameters
         Move.ticks_until_astar_recalc = 25
@@ -56,6 +59,9 @@ class RobomasterEnv(gym.Env):
         # my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
         my_robot = StratChooser(self, BLUE, Point(780, 100), 135)
         enemy_robot = KeyboardRobot("JKLI,./", self, RED, Point(50, 450), 0, ignore_angle=True)
+
+        self.publisher_robot = my_robot
+        self.enemy_robot_subscriber = enemy_robot
 
         none_team = Team("none_team", self.pygame_rendering)
         commands_ent = EnvCommands(self, none_team, Point(50000, 45000), 0)
@@ -476,7 +482,7 @@ class RobomasterEnv(gym.Env):
 
     def get_temp_obstacles(self):
         return self.characters['obstacles'][len(self.characters['obstacles']) - self.num_temp_obstacles:]
-    
+
     def add_temp_obstacles(self, list_of_obstacles):
         """
         :param list_of_obstacles:  list of tuples: (x, y, width, height)
@@ -489,3 +495,25 @@ class RobomasterEnv(gym.Env):
         self.num_temp_obstacles = len(list_of_obstacles)
         self.characters['obstacles'].extend(
             [Obstacle(Point(x - (width/2), y - (height/2)), width, height) for x, y, width, height in list_of_obstacles])
+
+    def ready_to_publish(self):
+        return self.ready_to_pub
+
+    def compute_path_to_publish(self):
+        """
+        :returns: list of tuples [(new_x, new_y, new_yaw)]
+        default yaw, ie. angle from one point to the next
+        """
+        self.ready_to_pub = False #treat publishing message as a queue
+        if not self.path_to_pub: #ensure not None and not empty
+            return []
+        pts = [self.publisher_robot.center] + self.path_to_pub
+        return [(pts[i].x, pts[i].y,
+                 to_degree(np.arctan2((pts[i].y-pts[i-1].y),(pts[i].x-pts[i-1].x)))) for i in range(1, len(pts))]
+
+    def set_pub_robot_pose(self, x, y, yaw):
+        """ give SIM verisons of x,y,yaw"""
+        self.publisher_robot.set_pose_by_center(x, y, yaw)
+
+    def set_enemy_sub_pose(self, x, y, yaw):
+        self.enemy_robot_subscriber.set_pose_by_center(x, y, yaw)
