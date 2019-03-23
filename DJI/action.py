@@ -1,7 +1,6 @@
-
+import Objects
 from Objects import *
 from utils import *
-import rendering
 import pygame
 import numpy
 import networkx as nx
@@ -54,7 +53,7 @@ class Step(Action):
         self.dy = dy
 
     def simple_resolve(self, robot):
-        return Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
+        return Objects.Rectangle(robot.bottom_left.move(self.dx, self.dy), robot.width, robot.height, robot.angle)
 
 
 class MoveForward(Translation):
@@ -73,7 +72,7 @@ class MoveAtAngle(Translation):
 
     def __init__(self, robot_angle, dis, angle):
         self.angle = angle
-        super().__init__(0, dis)
+        Translation.__init__(self, 0, dis)
 
 
 class Rotate(Action):
@@ -111,7 +110,7 @@ class RotateLeft(Action):
         self.angle = angle
 
     def simple_resolve(self, robot):
-        return Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle + self.angle)
+        return Objects.Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle + self.angle)
 
 
 class RotateRight(Action):
@@ -120,7 +119,7 @@ class RotateRight(Action):
         self.angle = angle
 
     def simple_resolve(self, robot):
-        return Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle - self.angle)
+        return Objects.Rectangle.by_center(robot.center, robot.width, robot.height, robot.angle - self.angle)
 
 
 class RefillCommand(Action):
@@ -186,7 +185,7 @@ class Fire(Action):
     def resolve(self, robot):
         if robot.bullet > 0 and robot.cooldown == 0:
             noise = np.random.normal(0, 3)
-            robot.env.characters['bullets'].append(Bullet(robot.get_gun().center, \
+            robot.env.characters['bullets'].append(Objects.Bullet(robot.get_gun().center, \
                 robot.angle + robot.gun_angle + noise, robot.env, robot))
             robot.bullet -= 1
             robot.cooldown = robot.max_cooldown

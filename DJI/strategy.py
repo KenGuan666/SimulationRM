@@ -21,7 +21,7 @@ class Strategy:
         self.move = Move(None) #None means there is no where  move to, .resolve will do nothing
         self.auto_aim = True
         self.auto_shoot = True
-        self.auto_rotate = True
+        self.auto_rotate = False
 
     def move_to(self, target_point, recompute, force_compute = False, backups = []):
         """
@@ -85,7 +85,7 @@ class Patrol(Strategy):
     lines = [rhombus, top_line, right_line]
 
     def __init__(self):
-        super().__init__()
+        Strategy.__init__()
         self.patrol_path = Patrol.rhombus # defualt
         self.pt_num = None
 
@@ -117,7 +117,7 @@ class DoNothing(Strategy):
 class BreakLine(Strategy):
 
     def __init__(self):
-        super().__init__()
+        Strategy.__init__(self)
         self.additional_key_points = []
 
     def decide(self, robot):
@@ -146,7 +146,7 @@ class SpinAndFire(Strategy):
 class Chase(Strategy):
 
     def __init__(self):
-        super().__init__()
+        Strategy.__init__(self)
         self.target_robot = None
 
     def choose_target_robot(self, target_robot):
@@ -187,8 +187,9 @@ class GetDefenseBuff(Strategy):
 
 
 class Attack(Strategy):
+
     def __init__(self):
-        super().__init__()
+        Strategy.__init__(self)
         self.chase_sub_strat = Chase()
         self.set_substrat(self.chase_sub_strat)
         self.chase_sub_strat.move.print_bool = True #TODO REMOVE
@@ -217,7 +218,7 @@ class AttackWithR(Strategy):
 class KeyboardPyglet(Strategy):
 
     def __init__(self, controls, ignore_angle):
-        super().__init__()
+        Strategy.__init__(self)
         self.controls = controls
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright,
             self.refill] = controls
@@ -256,12 +257,13 @@ class KeyboardPyglet(Strategy):
 
 class KeyboardPygame(Strategy):
     
-    def __init__(self, controls):
-        super().__init__()
+    def __init__(self, controls, ignore_angle):
+        Strategy.__init__(self)
         [self.left, self.down, self.right, self.up, self.turnleft, self.turnright, \
             self.refill] = controls
         self.actions = []
         self.refilling = False
+        self.ignore_angle = ignore_angle
 
     def set_instructions(self, actions):
         self.actions = actions
@@ -269,6 +271,7 @@ class KeyboardPygame(Strategy):
             self.refilling = False
 
     def decide(self, robot):
+        board_ang = 90
         if not self.actions:
             return None
         actions = []
@@ -277,19 +280,18 @@ class KeyboardPygame(Strategy):
         if self.turnright in self.actions:
             actions.append(RotateRight(robot.max_rotation_speed))
         if self.up in self.actions:
-            actions.append(MoveForward(robot.angle, robot.max_speed))
+            actions.append(MoveForward(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.down in self.actions:
-            actions.append(MoveBackward(robot.angle, robot.max_speed))
+            actions.append(MoveBackward(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.left in self.actions:
-            actions.append(MoveLeft(robot.angle, robot.max_speed))
+            actions.append(MoveLeft(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.right in self.actions:
-            actions.append(MoveRight(robot.angle, robot.max_speed))
+            actions.append(MoveRight(board_ang if self.ignore_angle else robot.angle, robot.max_speed))
         if self.refill in self.actions:
             if not self.refilling:
                 self.refilling = True
                 actions.append(RefillCommand())
         return actions
-
 
 class Joystick(Strategy):
 
@@ -336,49 +338,3 @@ class Joystick(Strategy):
         # print(translation_angle)
         # action = MoveAtAngle(robot.angle, robot.max_speed * translation_weight * translation_power, translation_angle)
         return actions
-
-
-############################################### TWO ROBOT STRATEGIES ######################################
-
-class Listen(Strategy):
-
-    def __init__(self):
-        super().__init__()
-        self.queued_actions = None #NOTE THAT QUEUED ACTION SHOULD BE SET BY MASTER ROBOT
-
-    def set_defaults(self, auto_rotate = None, auto_shoot = None, auto_aim = None):
-        if auto_rotate is not None:
-            self.auto_rotate = auto_rotate
-        if auto_shoot is not None:
-            self.auto_shoot = auto_shoot
-        if auto_aim is not None:
-            self.auto_aim = auto_aim
-
-    def queue_action(self, action):
-        self.queued_actions = action
-
-    def decide(self, robot):
-        temp = self.queued_actions #get
-        self.queued_actions = None #pop
-        return temp #return
-
-
-class MasterStrat(Strategy):
-
-    def __init__(self, listener_robot):
-        super().__init__()
-        self.listener_robot = listener_robot
-
-
-class ChooseTwo(MasterStrat):
-
-    def __init__(self, listener_robot: ListenerRobot, master_strat=Attack, listener_strat=Attack):
-        super().__init__(listener_robot)
-        self.master_strat = master_strat()
-        self.listener_strat = listener_strat()
-        self.set_substrat(self.master_strat)
-        self.listener_robot.set_substrat(self.listener_strat)
-
-    def decide(self, robot):
-        self.listener_robot.substrat_decide(self.listener_strat, self.listener_robot)
-        return self.substrat_decide(self.master_strat, robot)

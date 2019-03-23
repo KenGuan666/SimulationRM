@@ -7,7 +7,6 @@ import gym
 from gym import spaces, logger
 from utils import *
 # from gym.envs.classic_control import rendering
-import rendering
 from gym.utils import seeding
 from gym.envs.DJI.Objects import *
 import numpy as np
@@ -17,18 +16,20 @@ import cv2
 
 
 class RobomasterEnv(gym.Env):
-
     # Defining course dimensions
     width = 800
     height = 500
     tau = 0.02
     full_time = 300
     display_visibility_map = 0
-    rendering, pygame_rendering = True, False
+    rendering, pygame_rendering = False, True
     keyboard_robot = False
     joystick_robot = False
 
     def __init__(self):
+        # Ros temp objects
+        self.num_temp_obstacles = 0
+
         # initialize robot movement parameters
         Move.ticks_until_astar_recalc = 25
         delta = 40  # offset of graph points from wall corners
@@ -301,12 +302,22 @@ class RobomasterEnv(gym.Env):
             geoms = char.render()
             for geom in geoms:
                 self.viewer.add_onetime(geom)
+
+        #for dynamic obstacles / temp obstacles
+        obst = self.characters['obstacles']
+        for char in obst[len(obst) - self.num_temp_obstacles:]:
+            geoms = char.render()
+            for geom in geoms:
+                self.viewer.add_onetime(geom)
+
         self.viewer.add_onetime_text("Time: {0} seconds".format(round(self.game_time, 1)), \
                                      10, 12, self.height - 12)
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
     def pygame_render(self):
+
+        self.viewer.fill(PYGAME_COLOR_WHITE)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -457,3 +468,16 @@ class RobomasterEnv(gym.Env):
         if self.rendering:
             self.stop_rendering()
             self.init_rendering()
+
+    def add_temp_obstacles(self, list_of_obstacles):
+        """
+        :param list_of_obstacles:  list of tuples: (x, y, width, height)
+        :return:
+        """
+        # remove temps
+        self.characters['obstacles'] = self.characters['obstacles'][:len(self.characters['obstacles']) - self.num_temp_obstacles]
+
+        # add new temps
+        self.num_temp_obstacles = len(list_of_obstacles)
+        self.characters['obstacles'].extend(
+            [Obstacle(Point(x - (width/2), y - (height/2)), width, height) for x, y, width, height in list_of_obstacles])

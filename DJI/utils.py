@@ -1,5 +1,4 @@
 import math
-import rendering
 
 """
 Implements a point
@@ -59,7 +58,7 @@ Contains vector functions for convenience
 class Vector(Point):
 
 	def __init__(self, x, y):
-		super().__init__(x, y)
+		Point.__init__(self, x, y)
 		self.length = self.dis(Point(0, 0))
 
 	def dot(self, other):
@@ -165,7 +164,7 @@ class Team:
 		return state
 
 def to_radian(deg):
-	return deg / 180 * math.pi
+	return deg * 1.0 / 180 * math.pi
 
 def to_degree(rad):
 	return rad * 180 / math.pi
