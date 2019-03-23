@@ -790,7 +790,11 @@ class EnvCommands(StratChooser):
         # self.controls = "01233456789"
         self.strats = [#DoNothing, BreakLine, Patrol, OnlyReload,
                        (lambda: env.add_temp_obstacles([(400,250,50,50)]), 'env.add_temp_obstacles([(400,250,50,50)])'),
-                       (lambda: env.add_temp_obstacles([(400,250,50,300)]), 'env.add_temp_obstacles([(400,250,50,50)])'),
+                       (lambda: env.add_temp_obstacles([(400, 250, 50, 50),
+                                                        (400, 310, 50, 50),
+                                                        (400, 190, 50, 50),
+                                                        (400, 370, 50, 50),
+                                                        (400, 130, 50, 50)]), 'env.add_temp_obstacles([(400,250,50,50)])'),
                        ]
         self.strat_class_or_tup, self.strat = None, None
         self.printed_help = False

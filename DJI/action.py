@@ -333,6 +333,16 @@ def full_astar(to, robot, closest_point_try= False):
                 if master.has_edge(p_i.id, p_j.id) and not r.blocks_path_curr_angle(p_i, p_j, robot):
                     removed_weighted_edges.append((p_i.id, p_j.id, master[p_i.id][p_j.id]['weight'])) # save weight
 
+    # more illegal with temp
+    for obst in env.get_temp_obstacles():
+        print(obst)
+        points_in_radius = get_network_points(env.network_points, obst)  # TODO make parameter for illegal edge collision
+        for p_i in points_in_radius:
+            for j_id in list(master.adj[p_i.id]):
+                p_j = points[j_id]
+                if master.has_edge(p_i.id, p_j.id) and not obst.blocks_path_curr_angle(p_i, p_j, robot):
+                    removed_weighted_edges.append((p_i.id, p_j.id, master[p_i.id][p_j.id]['weight']))  # save weight
+
     # for all nodes visible to robot.center and to-point, add an edge + weight
     for p in env.network_points:
         if p.dis(robot.center) <= 250 and env.direct_reachable_curr_angle(robot.center, p, robot): #TODO make parameter for start/goal visibility
@@ -383,9 +393,9 @@ def full_astar(to, robot, closest_point_try= False):
     return [points[path[i]] for i in range(1,len(path))] # remove current robot point
 
 
-def get_network_points(points, robot):
-    env = robot.env
+def get_network_points(points, robot, distance = 140):
+    # env = robot.env
     center = robot.center
-    return [p for p in points if p.dis(center) < 140]
+    return [p for p in points if p.dis(center) < distance]
    
 

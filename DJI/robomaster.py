@@ -475,8 +475,8 @@ class RobomasterEnv(gym.Env):
             self.init_rendering()
 
     def get_temp_obstacles(self):
-        return self.characters['obstacles'][:len(self.characters['obstacles']) - self.num_temp_obstacles]
-
+        return self.characters['obstacles'][len(self.characters['obstacles']) - self.num_temp_obstacles:]
+    
     def add_temp_obstacles(self, list_of_obstacles):
         """
         :param list_of_obstacles:  list of tuples: (x, y, width, height)
