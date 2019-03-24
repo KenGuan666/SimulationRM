@@ -632,8 +632,9 @@ class Robot(Rectangle):
             strategy = self.get_strategy()
             if strategy:
                 action = strategy.decide_with_default(self)
-                if action and (not self.env.ros_control or type(action) == Move):
+                if action:
                     for action_part in action:
+                        # if not self.env.ros_control or type(action).__name__ == "Move":
                         action_part.resolve(self)
 
     def set_position(self, rec):
@@ -744,7 +745,7 @@ class StratChooser(Robot):
     def __init__(self, env, team, bottom_left, angle=0):
         Robot.__init__(self, env, team, bottom_left, angle)
         # self.controls = "01233456789"
-        self.strats = [DoNothing, Attack, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase, Patrol]
+        self.strats = [Attack, DoNothing, BreakLine, SpinAndFire, OnlyReload, GetDefenseBuff, Chase, Patrol]
         self.strat_class_or_tup, self.strat = None, None
         self.switch_strat(self.strats[0])
         self.printed_help = False

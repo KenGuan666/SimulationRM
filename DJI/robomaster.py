@@ -63,9 +63,9 @@ class RobomasterEnv(gym.Env):
         self.publisher_robot = my_robot
         self.enemy_robot_subscriber = enemy_robot
 
-        none_team = Team("none_team", self.pygame_rendering)
-        commands_ent = EnvCommands(self, none_team, Point(50000, 45000), 0)
-        self.commands_ent = commands_ent
+        # none_team = Team("none_team", self.pygame_rendering)
+        # commands_ent = EnvCommands(self, none_team, Point(50000, 45000), 0)
+        self.commands_ent = None #commands_ent
 
         # bugged spot with closest point unreachable
         # my_robot = AttackRobot(self, BLUE, Point(365.917389, 355.968720), 312.700132)
@@ -280,7 +280,9 @@ class RobomasterEnv(gym.Env):
 
         for char in self.actables():
             char.act()
-        self.commands_ent.act()
+
+        if self.commands_ent:
+            self.commands_ent.act()
 
         #TODO printing for robots
         # for robot in self.characters['robots']:

@@ -20,7 +20,7 @@ class Strategy:
     def __init__(self):
         self.move = Move(None) #None means there is no where  move to, .resolve will do nothing
         self.auto_aim = True
-        self.auto_shoot = True
+        self.auto_shoot = False #TODO change for real robot
         self.auto_rotate = False
 
     def move_to(self, target_point, recompute, force_compute = False, backups = []):
