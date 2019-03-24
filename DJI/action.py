@@ -271,7 +271,7 @@ class Move(Action):
         if not self.path:
             self.path = self.compute_path(robot)
 
-        if self.path == None:
+        if not self.path:
             return
 
         #update waypoint
@@ -291,11 +291,11 @@ class Move(Action):
     def compute_path(self, robot):
         if len(self.target_points) > 0:
             path1 = full_astar(self.target_points[0], robot)
-            if path1 is not None and path1[-1].float_equals(self.target_points[0]):
+            if path1 and path1[-1].float_equals(self.target_points[0]):
                 return path1
             for pt in self.target_points[1:]:
                 path = full_astar(pt, robot)
-                if path is not None and path[-1].float_equals(pt):
+                if path and path[-1].float_equals(pt):
                     return path
             return path1
 
@@ -331,7 +331,7 @@ def full_astar(to, robot, closest_point_try= False):
         for p_i in points_in_radius:
             for j_id in list(master.adj[p_i.id]):
                 p_j = points[j_id]
-                if master.has_edge(p_i.id, p_j.id) and not r.blocks_path_curr_angle(p_i, p_j, robot):
+                if master.has_edge(p_i.id, p_j.id) and r.blocks_path_curr_angle(p_i, p_j, robot):
                     removed_weighted_edges.append((p_i.id, p_j.id, master[p_i.id][p_j.id]['weight'])) # save weight
 
     # for all nodes visible to robot.center and to-point, add an edge + weight
@@ -358,6 +358,8 @@ def full_astar(to, robot, closest_point_try= False):
             master.remove_edge(e[0], e[1])
         except nx.NetworkXError as e:
             continue
+
+    # display_edges(points, env)
 
     # search for astar path, if path not found, move to the closest point on the graph to the to-point
     move_to_priority = sorted(list(master.nodes), key=lambda n: points[n].dis(to))

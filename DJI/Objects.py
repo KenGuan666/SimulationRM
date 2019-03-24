@@ -140,8 +140,8 @@ class Rectangle(Character):
 		for i in range(4):
 			seg = LineSegment(helper_robot_fr.vertices[i], helper_robot_to.vertices[i])
 			if self.blocks(seg):
-				return False
-		return True
+				return True
+		return False
 
 	def angle_to(self, point):
 		return self.center.angle_to(point)
@@ -570,7 +570,7 @@ class Robot(Rectangle):
 	"""
 	def get_enemy(self):
 		enemy = self.team.enemy
-		robots = enemy.robots
+		robots = list(filter(lambda enemy: enemy.health > 0, enemy.robots))
 		visible_robots = list(filter(lambda enemy: not self.env.is_blocked(LineSegment(self.center, enemy.center), [self, enemy]), robots))
 		
 		if visible_robots:

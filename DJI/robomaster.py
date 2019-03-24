@@ -53,8 +53,9 @@ class RobomasterEnv(gym.Env):
 
         # Initialize robots
         # my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
-        my_robot = StratChooser(self, BLUE, Point(780, 100), 135)
-        enemy_robot = KeyboardRobot("ASDWOPR", self, RED, Point(50, 450), 0, ignore_angle=True)
+        my_robot = AttackRobot(self, BLUE, Point(780, 100), 135)
+        enemy_robot = AttackRobot(self, RED, Point(50, 450), 0)
+        # enemy_robot = AttackRobot("ASDWOPR", self, RED, Point(50, 450), 0, ignore_angle=True)
 
         # bugged spot with closest point unreachable
         # my_robot = AttackRobot(self, BLUE, Point(365.917389, 355.968720), 312.700132)
@@ -150,8 +151,7 @@ class RobomasterEnv(gym.Env):
         self.my_team.set_health_bar(UprightRectangle(Point(10, self.height / 2 - health_bar_params[1] / 2), \
                                                      health_bar_params[0], health_bar_params[1]), self.viewer)
         self.enemy_team.set_health_bar(UprightRectangle(Point(self.width - health_bar_params[0] - 10, \
-                                                              self.height / 2 - health_bar_params[1] / 2),
-                                                        health_bar_params[0], health_bar_params[1]), self.viewer)
+                                                              self.height / 2 - health_bar_params[1] / 2), health_bar_params[0], health_bar_params[1]), self.viewer)
 
         for char in self.inactables():
             geoms = char.render()
